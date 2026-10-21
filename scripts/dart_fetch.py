@@ -230,7 +230,9 @@ def mezzanine(corp):
                 "round": (it.get("bd_tm") or "").strip() + "회차" if it.get("bd_tm") else "",
                 "amount": eok(num(it.get("bd_fta"))),
                 "conversionPrice": num(it.get(px)),
-                "refixFloor": num(it.get("act_mktprc_fl_cvprc_lwtrsprc")),
+                # 시가하락에 따른 최저 조정가액 (EB 공시에는 없음)
+                "refixFloor": num(it.get("act_mktprcfl_cvprc_lwtrsprc")),
+                "convStart": kdate(it.get("cvrqpd_bgd") or it.get("exrqpd_bgd") or it.get("expd_bgd")),
                 "coupon": num(it.get("bd_intr_ex")),
                 "ytm": num(it.get("bd_intr_sf")),
                 "maturity": kdate(it.get("bd_mtd")),
