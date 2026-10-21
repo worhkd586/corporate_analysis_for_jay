@@ -12,7 +12,7 @@
 대시보드의 "DART 수집 요청" 버튼은 대시보드 저장소의 `requests/<id>`에 `{query, at}`만 기록한다. 이 요청을 받으면 아래만 실행한다. 데이터 내용은 읽지 말고(토큰 절약) 스크립트 출력 한 줄 요약만 확인한다.
 
 1. ArtifactData `list`로 `requests`와 `results` 컬렉션을 `out_dir=.cache/queue`에 저장한다 (url은 위 대시보드).
-2. `python3 scripts/dart_fetch.py --queue .cache/queue`
+2. `python3 scripts/dart_fetch.py --queue .cache/queue` (포그라운드로 실행하고 timeout은 10분. 백그라운드로 돌린 뒤 `pgrep -f dart_fetch.py`로 기다리면 자기 자신을 잡아 끝나지 않는다)
    - results가 없는 요청만 최대 10건 처리하고 `.cache/upload/writes.json`을 만든다.
 3. `.cache/upload/writes.json`의 배열을 ArtifactData `batch`의 `writes`로 그대로 보낸다.
    - 이미 있는 문서(같은 기업을 다시 받은 경우)라서 거부되면 그 문서를 `get`해 `version`을 `if_version`으로 붙여 다시 보낸다.

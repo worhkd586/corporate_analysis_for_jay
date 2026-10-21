@@ -167,10 +167,18 @@ def financials(corp):
             break
     else:
         return None
+    raw = []
     for y in range(latest - 4, latest + 1):
-        items = latest_items if y == latest else statements(corp, y, "11011")[0]
+        raw.append(latest_items if y == latest else statements(corp, y, "11011")[0])
         years.append(str(y))
-        rows.append(extract(items) if items else {})
+    # 사업보고서가 없는 해(상장 전 등)는 다음 해 보고서의 전기(frmtrm) 금액으로 채운다
+    for i, items in enumerate(raw):
+        if items:
+            rows.append(extract(items))
+        elif i + 1 < len(raw) and raw[i + 1]:
+            rows.append(extract(raw[i + 1], "frmtrm_amount"))
+        else:
+            rows.append({})
     series = lambda k: [eok(r.get(k)) for r in rows]
     f = {"unit": "억원", "fsDiv": "연결" if fs_div == "CFS" else "별도", "years": years,
          "revenue": series("revenue"), "operatingIncome": series("operatingIncome"),
@@ -192,6 +200,15 @@ def financials(corp):
     return f
 
 
+def kdate(s):
+    """'2030년 10월 02일', '2030-10-02', '20301002' → '2030-10-02' (일이 없으면 '2030-10')."""
+    m = re.search(r"(\d{4})\D{0,3}(\d{1,2})(?:\D{0,3}(\d{1,2}))?", s or "")
+    if not m:
+        return None
+    y, mo, d = m.groups()
+    return f"{y}-{int(mo):02d}" + (f"-{int(d):02d}" if d else "")
+
+
 def mezzanine(corp):
     end = dt.date.today()
     bgn = end.replace(year=end.year - 4)
@@ -207,9 +224,9 @@ def mezzanine(corp):
                 "refixFloor": num(it.get("act_mktprc_fl_cvprc_lwtrsprc")),
                 "coupon": num(it.get("bd_intr_ex")),
                 "ytm": num(it.get("bd_intr_sf")),
-                "maturity": (it.get("bd_mtd") or "")[:10] or None,
+                "maturity": kdate(it.get("bd_mtd")),
                 "putDate": None,
-                "decided": it.get("bddd") or it.get("rcept_no", "")[:8],
+                "decided": kdate(it.get("bddd") or (it.get("rcept_no") or "")[:8]),
                 "rceptNo": it.get("rcept_no"),
             })
     out.sort(key=lambda x: x.get("decided") or "", reverse=True)
