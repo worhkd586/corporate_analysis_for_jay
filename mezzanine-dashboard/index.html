@@ -1,0 +1,654 @@
+<title>메자닌 투자 기업분석</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: 상단 검색 → 종합판정(점수+우선순위) → P1/P2/P3 항목 카드 → 차트·표 상세. 대시보드는 위에서 아래로 "결론 → 근거" 순서 */
+:root {
+  --bg: #f4f6f5;
+  --panel: #ffffff;
+  --panel-2: #eef2f0;
+  --fg: #16201d;
+  --fg-muted: #5b6a65;
+  --line: #d6dfdb;
+  --accent: #1f6b5c;
+  --accent-soft: #dcebe6;
+  --ok: #2f7d4f;
+  --warn: #b7791f;
+  --bad: #b23b3b;
+  --ok-soft: #e1f0e6;
+  --warn-soft: #f7ecd9;
+  --bad-soft: #f6e0e0;
+  --series-2: #6c5fa8;
+  --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --font-num: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1513; --panel: #161e1b; --panel-2: #1c2622; --fg: #e4ece9; --fg-muted: #93a49e; --line: #2a3632;
+    --accent: #5fbfa7; --accent-soft: #1d3530; --ok: #6cc58f; --warn: #e2ad57; --bad: #ec7c7c;
+    --ok-soft: #1b3326; --warn-soft: #3a2d17; --bad-soft: #3c1f1f; --series-2: #a99ae6; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1513; --panel: #161e1b; --panel-2: #1c2622; --fg: #e4ece9; --fg-muted: #93a49e; --line: #2a3632;
+  --accent: #5fbfa7; --accent-soft: #1d3530; --ok: #6cc58f; --warn: #e2ad57; --bad: #ec7c7c;
+  --ok-soft: #1b3326; --warn-soft: #3a2d17; --bad-soft: #3c1f1f; --series-2: #a99ae6; color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); line-height: 1.55; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-block: 24px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 20px; }
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+h1 { font-size: 1.45rem; font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 1.05rem; font-weight: 600; }
+h3 { font-size: 0.95rem; font-weight: 600; }
+.eyebrow { font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-muted); font-weight: 600; }
+.muted { color: var(--fg-muted); }
+.num { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; min-width: 0; }
+
+/* header + search */
+.top { display: flex; flex-wrap: wrap; gap: 16px; align-items: end; justify-content: space-between; }
+.top p { margin: 4px 0 0; color: var(--fg-muted); max-width: 62ch; }
+.search { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.search input { font: inherit; font-size: 1rem; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); width: min(320px, 100%); }
+.search input:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button { font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); padding: 10px 14px; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--bg); font-weight: 600; }
+button:disabled { opacity: 0.55; cursor: progress; }
+.status { font-size: 0.85rem; color: var(--fg-muted); min-height: 1.3em; }
+.status.err { color: var(--bad); }
+
+.banner { display: flex; gap: 10px; align-items: flex-start; padding: 10px 14px; border-radius: 8px; background: var(--warn-soft); color: var(--fg); font-size: 0.85rem; border: 1px solid var(--line); }
+.banner b { color: var(--warn); }
+
+/* verdict */
+.verdict { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: 20px; }
+@media (max-width: 760px) { .verdict { grid-template-columns: minmax(0, 1fr); } }
+.gauge { display: grid; gap: 6px; align-content: start; }
+.score-big { font-family: var(--font-num); font-size: 3.2rem; font-weight: 600; line-height: 1; }
+.score-big small { font-size: 1rem; color: var(--fg-muted); font-weight: 400; }
+.pill { display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 600; padding: 3px 10px; border-radius: 999px; width: fit-content; }
+.pill.ok { background: var(--ok-soft); color: var(--ok); }
+.pill.warn { background: var(--warn-soft); color: var(--warn); }
+.pill.bad { background: var(--bad-soft); color: var(--bad); }
+.pill.na { background: var(--panel-2); color: var(--fg-muted); }
+.co-meta { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.85rem; color: var(--fg-muted); }
+.summary { margin: 8px 0 0; max-width: 75ch; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 14px; }
+.kpi { background: var(--panel-2); border-radius: 8px; padding: 10px 12px; display: grid; gap: 2px; }
+.kpi .v { font-family: var(--font-num); font-size: 1.15rem; font-weight: 600; }
+.kpi .l { font-size: 0.75rem; color: var(--fg-muted); }
+
+/* criteria */
+.tier { display: grid; gap: 10px; }
+.tier-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.tier-tag { font-family: var(--font-num); font-weight: 600; font-size: 0.8rem; padding: 2px 8px; border-radius: 6px; background: var(--accent-soft); color: var(--accent); }
+.crit-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.crit { display: grid; gap: 8px; align-content: start; border-left: 4px solid var(--line); }
+.crit.s-ok { border-left-color: var(--ok); }
+.crit.s-warn { border-left-color: var(--warn); }
+.crit.s-bad { border-left-color: var(--bad); }
+.crit-top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.crit .w { font-size: 0.75rem; color: var(--fg-muted); }
+.dots { display: flex; gap: 4px; }
+.dots i { width: 18px; height: 6px; border-radius: 3px; background: var(--line); display: block; }
+.dots i.on { background: currentColor; }
+.crit p { margin: 0; font-size: 0.88rem; }
+.crit ul { margin: 0; padding-left: 18px; font-size: 0.82rem; color: var(--fg-muted); }
+.crit ul li + li { margin-top: 2px; }
+
+/* detail grid */
+.grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 860px) { .grid-2 { grid-template-columns: minmax(0, 1fr); } }
+.panel-head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; flex-wrap: wrap; margin-bottom: 10px; }
+.chart { position: relative; width: 100%; }
+.chart svg { display: block; width: 100%; height: auto; }
+.chart text { fill: var(--fg-muted); font-family: var(--font-num); font-size: 11px; }
+.tip { position: absolute; pointer-events: none; background: var(--fg); color: var(--bg); font-size: 0.78rem; padding: 6px 8px; border-radius: 6px; white-space: nowrap; transform: translate(-50%, -110%); font-family: var(--font-num); }
+.legend { display: flex; gap: 14px; font-size: 0.78rem; color: var(--fg-muted); flex-wrap: wrap; }
+.legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; background: var(--c); }
+
+.table-scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
+th, td { padding: 7px 10px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { font-weight: 600; color: var(--fg-muted); font-size: 0.78rem; }
+td { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+td:first-child { font-family: var(--font-body); }
+tr.self td { background: var(--accent-soft); font-weight: 600; }
+
+.risk-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.risk-list li { display: flex; gap: 10px; align-items: baseline; font-size: 0.88rem; }
+
+/* terms calculator */
+.calc { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.calc label { display: grid; gap: 4px; font-size: 0.78rem; color: var(--fg-muted); }
+.calc input { font: inherit; font-family: var(--font-num); padding: 8px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); width: 100%; box-sizing: border-box; }
+.calc-out { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-top: 12px; }
+
+details.method { font-size: 0.86rem; }
+details.method summary { cursor: pointer; font-weight: 600; }
+details.method table td { font-family: var(--font-body); white-space: normal; text-align: left; }
+details.method table th { text-align: left; }
+
+.loading-skel { animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) { .loading-skel { animation: none; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="eyebrow">Mezzanine Pre-Investment Screen · CB · BW · EB</div>
+      <h1>메자닌 투자 기업분석</h1>
+      <p>기업명을 입력하면 메자닌 투자자가 우선적으로 확인하는 항목(상환능력, 전환가치, 오버행 등) 순서로 점수와 근거를 정리합니다.</p>
+    </div>
+    <form class="search" id="searchForm">
+      <input id="companyInput" type="text" placeholder="기업명 또는 종목코드 (예: 에코프로비엠)" autocomplete="off" aria-label="기업명">
+      <button class="primary" id="analyzeBtn" type="submit">분석</button>
+      <button id="stopBtn" type="button" hidden>중지</button>
+    </form>
+  </header>
+  <div class="status" id="status" role="status"></div>
+
+  <div class="banner" id="banner">
+    <b>주의</b>
+    <span id="bannerText">아래는 화면 구성을 보여주는 <strong>가상 예시 기업</strong> 데이터입니다. 기업명을 입력해 분석하세요.</span>
+  </div>
+
+  <!-- 종합 판정 -->
+  <section class="panel verdict" id="verdict">
+    <div class="gauge">
+      <div class="eyebrow">가중 종합점수</div>
+      <div class="score-big" id="totalScore">—<small> / 100</small></div>
+      <span class="pill na" id="verdictPill">—</span>
+      <div class="muted" style="font-size:0.8rem">P1 항목 중 하나라도 1점이면 점수와 무관하게 "투자 보류"로 판정합니다.</div>
+    </div>
+    <div style="min-width:0">
+      <h2 id="coName">—</h2>
+      <div class="co-meta" id="coMeta"></div>
+      <p class="summary" id="coSummary"></p>
+      <div class="kpis" id="kpis"></div>
+    </div>
+  </section>
+
+  <!-- 우선순위별 항목 -->
+  <section class="tier" id="tiers"></section>
+
+  <!-- 상세 -->
+  <div class="grid-2">
+    <section class="panel" id="pricePanel">
+      <div class="panel-head"><h3>주가 추이 (월말 종가, 최근 24개월)</h3><span class="muted num" id="priceNote" style="font-size:0.78rem"></span></div>
+      <div class="chart" id="priceChart"></div>
+    </section>
+    <section class="panel" id="finPanel">
+      <div class="panel-head"><h3>매출·영업이익 추이</h3>
+        <div class="legend"><span style="--c: var(--accent)">매출액</span><span style="--c: var(--series-2)">영업이익</span></div>
+      </div>
+      <div class="chart" id="finChart"></div>
+    </section>
+  </div>
+
+  <div class="grid-2">
+    <section class="panel">
+      <div class="panel-head"><h3>재무제표 요약</h3><span class="muted" style="font-size:0.78rem" id="finUnit"></span></div>
+      <div class="table-scroll"><table id="finTable"></table></div>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><h3>상환능력·건전성 지표</h3><span class="muted" style="font-size:0.78rem">최근 연도 기준, 자동 계산</span></div>
+      <div class="table-scroll"><table id="ratioTable"></table></div>
+    </section>
+  </div>
+
+  <section class="panel">
+    <div class="panel-head"><h3>경쟁사 비교 · 밸류에이션</h3><span class="muted" style="font-size:0.78rem">음영 행이 분석 대상, 마지막 행은 경쟁사 중앙값</span></div>
+    <div class="table-scroll"><table id="peerTable"></table></div>
+  </section>
+
+  <div class="grid-2">
+    <section class="panel">
+      <div class="panel-head"><h3>기발행 메자닌 · 오버행</h3><span class="muted" style="font-size:0.78rem" id="overhangNote"></span></div>
+      <div class="table-scroll"><table id="mezzTable"></table></div>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><h3>주요 리스크 · 확인할 공시</h3></div>
+      <ul class="risk-list" id="riskList"></ul>
+    </section>
+  </div>
+
+  <section class="panel">
+    <div class="panel-head"><h3>발행조건 시뮬레이터</h3><span class="muted" style="font-size:0.78rem">제안받은 조건을 넣으면 전환가치와 풋 수익률을 계산합니다</span></div>
+    <div class="calc">
+      <label for="tPrice">현재 주가 (원)<input id="tPrice" type="number" inputmode="decimal"></label>
+      <label for="tConv">전환가액 (원)<input id="tConv" type="number" inputmode="decimal"></label>
+      <label for="tFloor">리픽싱 하한 (%)<input id="tFloor" type="number" value="70"></label>
+      <label for="tCoupon">표면이자율 (%)<input id="tCoupon" type="number" step="0.1" value="0"></label>
+      <label for="tYtm">만기보장수익률 (%)<input id="tYtm" type="number" step="0.1" value="3"></label>
+      <label for="tPut">조기상환청구 시점 (년)<input id="tPut" type="number" step="0.5" value="2"></label>
+    </div>
+    <div class="calc-out" id="calcOut"></div>
+  </section>
+
+  <section class="panel">
+    <details class="method" id="method">
+      <summary>평가 기준과 우선순위 (메자닌 투자자 체크리스트)</summary>
+      <div class="table-scroll" style="margin-top:10px"><table id="methodTable"></table></div>
+      <p class="muted" style="margin:10px 0 0">데이터는 Claude가 학습한 공개 정보를 바탕으로 작성한 추정치입니다. 실시간 시세나 DART 공시를 직접 조회하지 않으므로, 투자 판단 전에 최신 사업보고서·분기보고서, 전환사채 발행결정 공시, 최대주주 주식담보 공시로 반드시 확인하세요.</p>
+    </details>
+  </section>
+</div>
+
+<script>
+// ── 평가 기준: 메자닌 투자자가 보는 항목과 가중치 ─────────────────────────
+const CRITERIA = [
+  { key: "repayment", tier: "P1", weight: 25, name: "상환능력·유동성",
+    why: "풋옵션(조기상환청구) 행사 시 원리금을 돌려받을 수 있는지가 메자닌 투자의 하방을 결정합니다.",
+    checks: ["현금성자산 vs 단기차입금+메자닌 잔액", "영업활동현금흐름 흑자 여부", "이자보상배율", "추가 자금조달 여력(담보 가능 자산)"] },
+  { key: "conversion", tier: "P1", weight: 20, name: "주가·전환가치",
+    why: "업사이드는 주가가 전환가액을 넘어설 때 생깁니다. 리픽싱 하한과 유동성이 회수 가능성을 좌우합니다.",
+    checks: ["현재가 대비 예상 전환가 괴리", "52주 고저·변동성", "일평균 거래대금(전환 후 매도 가능성)", "리픽싱 하한 도달 가능성"] },
+  { key: "overhang", tier: "P1", weight: 15, name: "오버행·희석",
+    why: "미전환 CB/BW가 많으면 전환 물량이 주가를 누르고, 새 메자닌의 전환가치가 훼손됩니다.",
+    checks: ["미상환 메자닌 잔액 / 시가총액", "잠재 희석률", "최근 1~2년 반복 발행 여부", "전환청구기간 도래 물량"] },
+  { key: "soundness", tier: "P2", weight: 15, name: "재무건전성·상장유지",
+    why: "자본잠식, 감사의견 거절, 관리종목 지정은 거래정지로 이어져 회수 자체가 막힐 수 있습니다.",
+    checks: ["부채비율·자본잠식률", "최근 감사의견", "관리종목·투자주의 이력", "계속기업 불확실성 문구"] },
+  { key: "governance", tier: "P2", weight: 10, name: "지배구조·최대주주",
+    why: "최대주주 지분 담보, 잦은 변경, 콜옵션 남용은 메자닌 부실의 대표 신호입니다.",
+    checks: ["최대주주 지분율과 주식담보 비율", "최근 3년 최대주주 변경", "콜옵션 행사 대상자", "횡령·배임·불성실공시 이력"] },
+  { key: "business", tier: "P3", weight: 8, name: "사업성·성장성",
+    why: "주가 상승의 근거입니다. 자금 사용처가 실제 성장으로 이어지는지 봅니다.",
+    checks: ["매출 성장률", "영업이익률 추세", "조달자금 사용 목적", "산업 업황"] },
+  { key: "valuation", tier: "P3", weight: 7, name: "밸류에이션 상대수준",
+    why: "동종업계 대비 과도하게 비싸면 전환 후 상승 여력이 작습니다.",
+    checks: ["PER·PBR·EV/EBITDA vs 경쟁사 중앙값", "PSR(적자 기업)", "최근 주가 급등 여부"] },
+];
+const TIERS = {
+  P1: { label: "P1 · 반드시 통과", desc: "하나라도 1점이면 투자 보류" },
+  P2: { label: "P2 · 핵심 리스크", desc: "조건(담보·콜옵션·이자율)으로 보완 가능한지 판단" },
+  P3: { label: "P3 · 업사이드", desc: "전환 수익의 크기를 결정" },
+};
+
+// ── 가상 예시 기업 (화면 구성 확인용, 실제 기업 아님) ──────────────────────
+const EXAMPLE = {
+  isExample: true,
+  company: { name: "예시전자 (가상)", ticker: "000000", market: "KOSDAQ", sector: "2차전지 장비", description: "화면 구성을 보여주기 위한 가상의 코스닥 장비 업체입니다.", asOf: "예시" },
+  summary: "영업현금흐름은 흑자지만 단기차입금이 현금보다 많고, 기발행 CB 잔액이 시가총액의 12%에 달해 P1 오버행 항목이 약합니다. 담보 설정 또는 만기이자율 상향을 조건으로 검토할 만합니다.",
+  price: { current: 8420, marketCap: 2650, high52: 12800, low52: 6900, avgDailyValue: 38, volatility: 52,
+    series: [9800,10400,11200,10100,9400,8800,9100,9900,11800,12600,12100,10900,10200,9600,8900,8300,7600,7100,7400,8100,8700,8200,7900,8420].map((p, i) => ({ m: ym(2024, 11 + i), p })) },
+  financials: { unit: "억원", years: ["2021","2022","2023","2024","2025"],
+    revenue: [812, 1046, 1210, 1102, 1288], operatingIncome: [42, 88, 104, 31, 66], netIncome: [21, 61, 72, -18, 34],
+    ocf: [35, 70, 92, 12, 58], totalAssets: 2140, totalLiabilities: 1310, equity: 830, cash: 186, shortDebt: 342, totalDebt: 620, interestExpense: 29 },
+  valuation: { per: 77.9, pbr: 3.19, evEbitda: 24.1, psr: 2.06 },
+  peers: [
+    { name: "비교사 A (가상)", marketCap: 5400, per: 21.4, pbr: 2.1, evEbitda: 11.8, opMargin: 9.2, revenueGrowth: 14.0 },
+    { name: "비교사 B (가상)", marketCap: 3100, per: 35.0, pbr: 2.6, evEbitda: 16.5, opMargin: 6.1, revenueGrowth: 8.5 },
+    { name: "비교사 C (가상)", marketCap: 1900, per: null, pbr: 1.4, evEbitda: 19.3, opMargin: -2.4, revenueGrowth: -6.1 },
+  ],
+  mezzanine: { outstanding: [
+      { type: "CB", round: "3회차", amount: 200, conversionPrice: 10150, refixFloor: 7105, maturity: "2028-03", putDate: "2026-03" },
+      { type: "BW", round: "2회차", amount: 120, conversionPrice: 12400, refixFloor: 8680, maturity: "2027-06", putDate: "2025-06" },
+    ], overhangPct: 12.1, majorShareholderPct: 21.4, pledgedPct: 38, note: "최대주주 보유주식 중 약 38%가 금융기관 담보로 설정" },
+  scores: {
+    repayment: { score: 3, reason: "OCF 흑자(58억)이나 현금 186억 < 단기차입금 342억. 풋 대응 시 차환 필요." },
+    conversion: { score: 3, reason: "현재가가 52주 저점 부근, 변동성 52%로 전환 기회는 있으나 거래대금 38억으로 대량 매도는 제한적." },
+    overhang: { score: 2, reason: "미전환 CB·BW 320억(시총 12%). 2회차 BW는 행사가 하한 근접." },
+    soundness: { score: 3, reason: "부채비율 158%, 감사의견 적정, 관리종목 이력 없음." },
+    governance: { score: 2, reason: "최대주주 지분 21%, 그중 38% 담보. 반대매매 리스크 존재." },
+    business: { score: 4, reason: "4년 매출 CAGR 12%, 2024년 일시 부진 후 회복." },
+    valuation: { score: 2, reason: "PER 78배로 경쟁사 중앙값(28배) 대비 고평가." },
+  },
+  risks: [
+    { level: "high", text: "최대주주 주식담보 비율 38% — 주가 하락 시 반대매매로 최대주주 변경 가능" },
+    { level: "mid", text: "2회차 BW 풋 시점 도래 이후 상환 재원 확인 필요" },
+    { level: "mid", text: "2024년 순손실 — 일회성 여부 사업보고서 주석으로 확인" },
+    { level: "low", text: "주요 고객사 매출 의존도 확인 필요" },
+  ],
+};
+function ym(y, m) { const d = new Date(y, m - 1, 1); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); }
+
+// ── 포맷 ─────────────────────────────────────────────────────────────────
+const isNum = v => typeof v === "number" && isFinite(v);
+const fmt = (v, d = 0) => isNum(v) ? v.toLocaleString("ko-KR", { minimumFractionDigits: d, maximumFractionDigits: d }) : "—";
+const pct = (v, d = 1) => isNum(v) ? fmt(v, d) + "%" : "—";
+const mult = v => isNum(v) ? fmt(v, 1) + "x" : "—";
+const el = (tag, attrs = {}, ...kids) => { const n = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) { if (k === "class") n.className = v; else if (k === "style") n.style.cssText = v; else n.setAttribute(k, v); } for (const c of kids) if (c != null) n.append(c); return n; };
+const last = a => Array.isArray(a) && a.length ? a[a.length - 1] : null;
+const median = arr => { const a = arr.filter(isNum).sort((x, y) => x - y); if (!a.length) return null; const m = Math.floor(a.length / 2); return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; };
+const scoreClass = s => !isNum(s) ? "na" : s >= 4 ? "ok" : s >= 3 ? "warn" : "bad";
+
+// ── 계산 ─────────────────────────────────────────────────────────────────
+function computeTotal(scores) {
+  let sum = 0, w = 0, p1Fail = false;
+  for (const c of CRITERIA) {
+    const s = scores?.[c.key]?.score;
+    if (!isNum(s)) continue;
+    sum += (s / 5) * c.weight; w += c.weight;
+    if (c.tier === "P1" && s <= 1) p1Fail = true;
+  }
+  return { total: w ? Math.round(sum / w * 100) : null, p1Fail, coverage: w };
+}
+function verdictOf(total, p1Fail) {
+  if (total == null) return { cls: "na", text: "판정 불가" };
+  if (p1Fail) return { cls: "bad", text: "투자 보류 · P1 미통과" };
+  if (total >= 70) return { cls: "ok", text: "투자 검토 가능" };
+  if (total >= 50) return { cls: "warn", text: "조건부 검토 · 담보/조건 보완" };
+  return { cls: "bad", text: "투자 부적합" };
+}
+function ratios(f) {
+  const opi = last(f.operatingIncome), rev = last(f.revenue), ocf = last(f.ocf);
+  return [
+    ["부채비율", isNum(f.totalLiabilities) && f.equity > 0 ? f.totalLiabilities / f.equity * 100 : null, "%", v => v <= 150 ? "ok" : v <= 250 ? "warn" : "bad", "150% 이하 양호"],
+    ["현금 / 단기차입금", isNum(f.cash) && f.shortDebt > 0 ? f.cash / f.shortDebt * 100 : null, "%", v => v >= 100 ? "ok" : v >= 50 ? "warn" : "bad", "100% 이상이면 단기 상환 가능"],
+    ["순차입금", isNum(f.totalDebt) && isNum(f.cash) ? f.totalDebt - f.cash : null, f.unit, v => v <= 0 ? "ok" : "warn", "음수면 순현금"],
+    ["이자보상배율", isNum(opi) && f.interestExpense > 0 ? opi / f.interestExpense : null, "x", v => v >= 3 ? "ok" : v >= 1 ? "warn" : "bad", "1 미만이면 이자도 못 냄"],
+    ["영업이익률", isNum(opi) && rev > 0 ? opi / rev * 100 : null, "%", v => v >= 8 ? "ok" : v >= 0 ? "warn" : "bad", ""],
+    ["영업현금흐름", ocf, f.unit, v => v > 0 ? "ok" : "bad", "적자면 상환재원 외부조달 의존"],
+    ["자본잠식 여부", isNum(f.equity) ? (f.equity <= 0 ? "완전잠식" : "없음") : null, "", v => v === "없음" ? "ok" : "bad", "자본총계 기준 간이 판단"],
+  ];
+}
+
+// ── 렌더 ─────────────────────────────────────────────────────────────────
+let current = EXAMPLE;
+function render(d) {
+  current = d;
+  const f = d.financials || {}, p = d.price || {}, m = d.mezzanine || {};
+  document.getElementById("banner").hidden = false;
+  document.getElementById("bannerText").innerHTML = d.isExample
+    ? "아래는 화면 구성을 보여주는 <strong>가상 예시 기업</strong> 데이터입니다. 기업명을 입력해 분석하세요."
+    : "Claude가 학습한 공개 정보 기반의 <strong>추정치</strong>입니다(기준시점: " + escapeHtml(d.company?.asOf || "미상") + "). 실시간 시세·DART 공시가 아니므로 투자 판단 전 원문 공시로 확인하세요.";
+
+  // verdict
+  const { total, p1Fail } = computeTotal(d.scores);
+  const v = verdictOf(total, p1Fail);
+  document.getElementById("totalScore").firstChild.textContent = total == null ? "—" : String(total);
+  const pill = document.getElementById("verdictPill"); pill.className = "pill " + v.cls; pill.textContent = v.text;
+  document.getElementById("coName").textContent = d.company?.name || "—";
+  const meta = document.getElementById("coMeta"); meta.replaceChildren();
+  [d.company?.market, d.company?.ticker, d.company?.sector].filter(Boolean).forEach(t => meta.append(el("span", {}, t)));
+  document.getElementById("coSummary").textContent = d.summary || "";
+  const kpis = document.getElementById("kpis"); kpis.replaceChildren();
+  [
+    ["현재 주가", isNum(p.current) ? fmt(p.current) + "원" : "—"],
+    ["시가총액", isNum(p.marketCap) ? fmt(p.marketCap) + "억원" : "—"],
+    ["메자닌 잔액 / 시총", pct(m.overhangPct)],
+    ["최대주주 지분 (담보)", isNum(m.majorShareholderPct) ? pct(m.majorShareholderPct) + (isNum(m.pledgedPct) ? " (" + pct(m.pledgedPct, 0) + ")" : "") : "—"],
+    ["일평균 거래대금", isNum(p.avgDailyValue) ? fmt(p.avgDailyValue) + "억원" : "—"],
+  ].forEach(([l, val]) => kpis.append(el("div", { class: "kpi" }, el("span", { class: "l" }, l), el("span", { class: "v" }, val))));
+
+  // tiers
+  const tiers = document.getElementById("tiers"); tiers.replaceChildren();
+  for (const t of ["P1", "P2", "P3"]) {
+    const box = el("div", { class: "tier" });
+    box.append(el("div", { class: "tier-head" }, el("span", { class: "tier-tag" }, t), el("h2", {}, TIERS[t].label.split(" · ")[1]), el("span", { class: "muted", style: "font-size:0.82rem" }, TIERS[t].desc)));
+    const grid = el("div", { class: "crit-grid" });
+    for (const c of CRITERIA.filter(c => c.tier === t)) {
+      const s = d.scores?.[c.key]; const sc = s?.score; const cls = scoreClass(sc);
+      const dots = el("div", { class: "dots", style: "color: var(--" + (cls === "na" ? "line" : cls) + ")", "aria-label": (isNum(sc) ? sc : "?") + "점 / 5점" });
+      for (let i = 1; i <= 5; i++) dots.append(el("i", { class: isNum(sc) && i <= sc ? "on" : "" }));
+      const card = el("div", { class: "panel crit s-" + cls },
+        el("div", { class: "crit-top" }, el("h3", {}, c.name), el("span", { class: "w num" }, "가중치 " + c.weight + "%")),
+        el("div", { style: "display:flex;gap:10px;align-items:center" }, dots, el("span", { class: "pill " + cls }, isNum(sc) ? sc + " / 5" : "자료 없음")),
+        el("p", {}, s?.reason || "근거 자료가 부족합니다."),
+      );
+      const ul = el("ul"); c.checks.forEach(x => ul.append(el("li", {}, x))); card.append(ul);
+      grid.append(card);
+    }
+    box.append(grid); tiers.append(box);
+  }
+
+  // 시뮬레이터 기본값: 현재가, 전환가는 현재가 +5% (할증 발행 가정)
+  document.getElementById("tPrice").value = isNum(p.current) ? p.current : "";
+  document.getElementById("tConv").value = isNum(p.current) ? Math.round(p.current * 1.05) : "";
+
+  // charts + tables
+  drawPrice(p);
+  drawFin(f);
+  renderFinTable(f);
+  renderRatios(f);
+  renderPeers(d);
+  renderMezz(m);
+  renderRisks(d.risks || []);
+  calc();
+}
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+
+function svgEl(tag, attrs) { const n = document.createElementNS("http://www.w3.org/2000/svg", tag); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v); return n; }
+function niceTicks(min, max, n = 4) {
+  const span = max - min || Math.abs(max) || 1; const step0 = span / n; const mag = Math.pow(10, Math.floor(Math.log10(step0)));
+  const step = [1, 2, 2.5, 5, 10].map(x => x * mag).find(s => s >= step0);
+  const lo = Math.floor(min / step) * step, hi = Math.ceil(max / step) * step; const out = [];
+  for (let v = lo; v <= hi + step / 2; v += step) out.push(+v.toFixed(10));
+  return out;
+}
+
+function drawPrice(p) {
+  const box = document.getElementById("priceChart"); box.replaceChildren();
+  const s = (p.series || []).filter(x => isNum(x?.p));
+  document.getElementById("priceNote").textContent = isNum(p.high52) ? "52주 " + fmt(p.low52) + " ~ " + fmt(p.high52) + "원" : "";
+  if (s.length < 2) { box.append(el("p", { class: "muted" }, "주가 데이터가 없습니다.")); return; }
+  const W = Math.max(320, box.clientWidth || 560), H = 240, L = 54, R = 14, T = 14, B = 28;
+  const vals = s.map(x => x.p); const conv = Number(document.getElementById("tConv").value) || null;
+  const ticks = niceTicks(Math.min(...vals, conv ?? Infinity), Math.max(...vals, conv ?? -Infinity));
+  const y0 = ticks[0], y1 = ticks[ticks.length - 1];
+  const x = i => L + (W - L - R) * i / (s.length - 1); const y = v => T + (H - T - B) * (1 - (v - y0) / (y1 - y0));
+  const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, width: "100%", role: "img", "aria-label": "월별 주가 추이" });
+  ticks.forEach(t => { svg.append(svgEl("line", { x1: L, x2: W - R, y1: y(t), y2: y(t), stroke: "var(--line)", "stroke-width": 1 })); const tx = svgEl("text", { x: L - 6, y: y(t) + 4, "text-anchor": "end" }); tx.textContent = fmt(t); svg.append(tx); });
+  const every = Math.ceil(s.length / Math.max(2, Math.floor((W - L - R) / 70)));
+  s.forEach((d, i) => { if (i % every === 0 || i === s.length - 1) { const tx = svgEl("text", { x: x(i), y: H - 8, "text-anchor": i === s.length - 1 ? "end" : "middle" }); tx.textContent = d.m.slice(2).replace("-", "."); svg.append(tx); } });
+  const line = s.map((d, i) => `${i ? "L" : "M"}${x(i)},${y(d.p)}`).join("");
+  svg.append(svgEl("path", { d: line + `L${x(s.length - 1)},${y(y0)}L${x(0)},${y(y0)}Z`, fill: "var(--accent)", "fill-opacity": 0.1 }));
+  svg.append(svgEl("path", { d: line, fill: "none", stroke: "var(--accent)", "stroke-width": 2 }));
+  if (conv) {
+    svg.append(svgEl("line", { x1: L, x2: W - R, y1: y(conv), y2: y(conv), stroke: "var(--warn)", "stroke-dasharray": "5 4", "stroke-width": 1.5 }));
+    const tx = svgEl("text", { x: W - R, y: y(conv) - 5, "text-anchor": "end", style: "fill: var(--warn)" }); tx.textContent = "검토 전환가 " + fmt(conv); svg.append(tx);
+  }
+  svg.append(svgEl("circle", { cx: x(s.length - 1), cy: y(last(s).p), r: 4, fill: "var(--accent)" }));
+  const dot = svgEl("circle", { r: 4, fill: "var(--panel)", stroke: "var(--accent)", "stroke-width": 2, visibility: "hidden" }); svg.append(dot);
+  const tip = el("div", { class: "tip", hidden: "" });
+  svg.addEventListener("pointermove", e => {
+    const r = svg.getBoundingClientRect(); const px = (e.clientX - r.left) * W / r.width;
+    const i = Math.max(0, Math.min(s.length - 1, Math.round((px - L) / (W - L - R) * (s.length - 1))));
+    dot.setAttribute("cx", x(i)); dot.setAttribute("cy", y(s[i].p)); dot.setAttribute("visibility", "visible");
+    tip.hidden = false; tip.textContent = s[i].m + "  " + fmt(s[i].p) + "원";
+    const left = Math.min(Math.max(x(i) / W * r.width, 60), r.width - 60);
+    tip.style.left = left + "px"; tip.style.top = (y(s[i].p) / H * r.height) + "px";
+  });
+  svg.addEventListener("pointerleave", () => { tip.hidden = true; dot.setAttribute("visibility", "hidden"); });
+  box.append(svg, tip);
+}
+
+function drawFin(f) {
+  const box = document.getElementById("finChart"); box.replaceChildren();
+  const yrs = f.years || []; if (!yrs.length) { box.append(el("p", { class: "muted" }, "재무 데이터가 없습니다.")); return; }
+  const W = Math.max(320, box.clientWidth || 560), H = 240, L = 54, R = 10, T = 14, B = 28;
+  const all = [...(f.revenue || []), ...(f.operatingIncome || []), 0].filter(isNum);
+  const ticks = niceTicks(Math.min(...all), Math.max(...all)); const y0 = ticks[0], y1 = ticks[ticks.length - 1];
+  const y = v => T + (H - T - B) * (1 - (v - y0) / (y1 - y0));
+  const band = (W - L - R) / yrs.length; const bw = Math.min(28, band * 0.32);
+  const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, width: "100%", role: "img", "aria-label": "연도별 매출액과 영업이익" });
+  ticks.forEach(t => { svg.append(svgEl("line", { x1: L, x2: W - R, y1: y(t), y2: y(t), stroke: t === 0 ? "var(--fg-muted)" : "var(--line)", "stroke-width": 1 })); const tx = svgEl("text", { x: L - 6, y: y(t) + 4, "text-anchor": "end" }); tx.textContent = fmt(t); svg.append(tx); });
+  const tip = el("div", { class: "tip", hidden: "" });
+  yrs.forEach((yr, i) => {
+    const cx = L + band * (i + 0.5);
+    [["revenue", "var(--accent)", -1, "매출액"], ["operatingIncome", "var(--series-2)", 1, "영업이익"]].forEach(([k, c, side, lab]) => {
+      const v = f[k]?.[i]; if (!isNum(v)) return;
+      const r = svgEl("rect", { x: cx + (side < 0 ? -bw - 1 : 1), y: Math.min(y(v), y(0)), width: bw, height: Math.max(1, Math.abs(y(v) - y(0))), fill: v < 0 ? "var(--bad)" : c, rx: 2 });
+      r.addEventListener("pointerenter", () => { const rr = svg.getBoundingClientRect(); tip.hidden = false; tip.textContent = yr + " " + lab + " " + fmt(v) + (f.unit || ""); tip.style.left = Math.min(Math.max(cx / W * rr.width, 70), rr.width - 70) + "px"; tip.style.top = (Math.min(y(v), y(0)) / H * rr.height) + "px"; });
+      r.addEventListener("pointerleave", () => tip.hidden = true);
+      svg.append(r);
+    });
+    const tx = svgEl("text", { x: cx, y: H - 8, "text-anchor": "middle" }); tx.textContent = yr; svg.append(tx);
+  });
+  box.append(svg, tip);
+  document.getElementById("finUnit").textContent = "단위: " + (f.unit || "억원");
+}
+
+function renderFinTable(f) {
+  const t = document.getElementById("finTable"); t.replaceChildren();
+  const yrs = f.years || [];
+  const head = el("tr", {}, el("th", {}, "항목")); yrs.forEach(y => head.append(el("th", {}, y))); t.append(el("thead", {}, head));
+  const body = el("tbody");
+  [["매출액", "revenue"], ["영업이익", "operatingIncome"], ["당기순이익", "netIncome"], ["영업활동현금흐름", "ocf"]].forEach(([lab, k]) => {
+    const tr = el("tr", {}, el("td", {}, lab)); yrs.forEach((_, i) => { const v = f[k]?.[i]; tr.append(el("td", { style: isNum(v) && v < 0 ? "color: var(--bad)" : "" }, fmt(v))); }); body.append(tr);
+  });
+  const lastCol = yrs.length ? yrs.length - 1 : 0;
+  [["자산총계", "totalAssets"], ["부채총계", "totalLiabilities"], ["자본총계", "equity"], ["현금성자산", "cash"], ["단기차입금", "shortDebt"], ["총차입금", "totalDebt"]].forEach(([lab, k]) => {
+    const tr = el("tr", {}, el("td", {}, lab)); yrs.forEach((_, i) => tr.append(el("td", {}, i === lastCol ? fmt(f[k]) : ""))); body.append(tr);
+  });
+  t.append(body);
+}
+
+function renderRatios(f) {
+  const t = document.getElementById("ratioTable"); t.replaceChildren();
+  t.append(el("thead", {}, el("tr", {}, el("th", {}, "지표"), el("th", {}, "값"), el("th", {}, "상태"), el("th", {}, "기준"))));
+  const body = el("tbody");
+  for (const [lab, v, unit, judge, note] of ratios(f)) {
+    const has = v != null; const cls = has ? judge(v) : "na";
+    const shown = !has ? "—" : typeof v === "string" ? v : unit === "x" ? fmt(v, 1) + "x" : unit === "%" ? pct(v) : fmt(v) + " " + unit;
+    body.append(el("tr", {}, el("td", {}, lab), el("td", {}, shown), el("td", {}, el("span", { class: "pill " + cls }, { ok: "양호", warn: "주의", bad: "위험", na: "자료 없음" }[cls])), el("td", { class: "muted", style: "font-family:var(--font-body);font-size:0.78rem;text-align:left" }, note)));
+  }
+  t.append(body);
+}
+
+function renderPeers(d) {
+  const t = document.getElementById("peerTable"); t.replaceChildren();
+  const cols = [["기업", null], ["시가총액(억원)", "marketCap", fmt], ["PER", "per", mult], ["PBR", "pbr", mult], ["EV/EBITDA", "evEbitda", mult], ["영업이익률", "opMargin", pct], ["매출성장률", "revenueGrowth", pct]];
+  const head = el("tr"); cols.forEach(([h]) => head.append(el("th", {}, h))); t.append(el("thead", {}, head));
+  const f = d.financials || {}; const rev = f.revenue || [], opi = f.operatingIncome || [];
+  const self = { name: d.company?.name, marketCap: d.price?.marketCap, ...d.valuation,
+    opMargin: isNum(last(opi)) && last(rev) > 0 ? last(opi) / last(rev) * 100 : null,
+    revenueGrowth: rev.length > 1 && rev[rev.length - 2] > 0 ? (last(rev) / rev[rev.length - 2] - 1) * 100 : null };
+  const peers = d.peers || [];
+  const body = el("tbody");
+  const row = (r, cls) => { const tr = el("tr", { class: cls || "" }); cols.forEach(([, k, f2]) => tr.append(el("td", {}, k ? f2(r[k]) : (r.name || "—")))); return tr; };
+  body.append(row(self, "self"));
+  peers.forEach(p => body.append(row(p)));
+  if (peers.length) { const med = { name: "경쟁사 중앙값" }; cols.slice(1).forEach(([, k]) => med[k] = median(peers.map(p => p[k]))); const tr = row(med); tr.style.fontWeight = "600"; body.append(tr); }
+  t.append(body);
+}
+
+function renderMezz(m) {
+  const t = document.getElementById("mezzTable"); t.replaceChildren();
+  document.getElementById("overhangNote").textContent = m.note || "";
+  const list = m.outstanding || [];
+  if (!list.length) { t.append(el("tbody", {}, el("tr", {}, el("td", { class: "muted" }, "확인된 미상환 메자닌이 없습니다. DART '전환사채권발행결정' 공시로 재확인하세요.")))); return; }
+  t.append(el("thead", {}, el("tr", {}, ...["구분", "잔액(억원)", "전환/행사가", "리픽싱 하한", "현재가 대비", "풋 시점", "만기"].map(h => el("th", {}, h)))));
+  const cur = current.price?.current; const body = el("tbody");
+  list.forEach(x => {
+    const gap = isNum(cur) && x.conversionPrice > 0 ? (cur / x.conversionPrice - 1) * 100 : null;
+    body.append(el("tr", {}, el("td", {}, [x.type, x.round].filter(Boolean).join(" ")), el("td", {}, fmt(x.amount)), el("td", {}, fmt(x.conversionPrice)), el("td", {}, fmt(x.refixFloor)),
+      el("td", { style: isNum(gap) ? "color: var(--" + (gap >= 0 ? "ok" : "bad") + ")" : "" }, isNum(gap) ? (gap > 0 ? "+" : "") + fmt(gap, 1) + "%" : "—"), el("td", {}, x.putDate || "—"), el("td", {}, x.maturity || "—")));
+  });
+  t.append(body);
+}
+
+function renderRisks(risks) {
+  const ul = document.getElementById("riskList"); ul.replaceChildren();
+  if (!risks.length) { ul.append(el("li", { class: "muted" }, "특이 리스크가 확인되지 않았습니다.")); return; }
+  const map = { high: ["bad", "높음"], mid: ["warn", "중간"], low: ["na", "낮음"] };
+  risks.forEach(r => { const [c, l] = map[r.level] || map.low; ul.append(el("li", {}, el("span", { class: "pill " + c }, l), el("span", {}, r.text))); });
+}
+
+// ── 발행조건 시뮬레이터 ──────────────────────────────────────────────────
+function calc() {
+  const g = id => Number(document.getElementById(id).value);
+  const price = g("tPrice"), conv = g("tConv"), floor = g("tFloor"), cpn = g("tCoupon"), ytm = g("tYtm"), put = g("tPut");
+  const out = document.getElementById("calcOut"); out.replaceChildren();
+  const kpi = (l, v, sub) => el("div", { class: "kpi" }, el("span", { class: "l" }, l), el("span", { class: "v" }, v), sub ? el("span", { class: "l" }, sub) : null);
+  if (!(price > 0 && conv > 0)) { out.append(el("p", { class: "muted" }, "현재 주가와 전환가액을 입력하세요.")); return; }
+  const parity = price / conv * 100; const floorPx = conv * floor / 100;
+  // 풋 시점 원금 대비 보장액: 만기보장수익률을 연복리로 가정, 표면이자는 별도 지급으로 단순화
+  const putValue = 100 * Math.pow(1 + ytm / 100, put) - cpn * put;
+  const breakeven = conv * Math.max(putValue, 100) / 100;
+  out.append(
+    kpi("패리티 (주가/전환가)", fmt(parity, 1) + "%", parity >= 100 ? "즉시 전환 시 이익" : "전환가까지 +" + fmt(conv / price * 100 - 100, 1) + "%"),
+    kpi("리픽싱 후 최저 전환가", fmt(floorPx) + "원", "전환가 대비 " + fmt(floor, 0) + "%"),
+    kpi("리픽싱 후 패리티", fmt(price / floorPx * 100, 1) + "%", "하한까지 조정됐을 때"),
+    kpi("풋 시점 상환액 (원금 100 기준)", fmt(putValue, 1), fmt(put, 1) + "년 후, 표면이자 별도"),
+    kpi("풋 대비 전환이 유리한 주가", fmt(breakeven) + "원", "현재가 대비 " + (breakeven / price * 100 - 100 >= 0 ? "+" : "") + fmt(breakeven / price * 100 - 100, 1) + "%"),
+  );
+}
+["tPrice", "tConv", "tFloor", "tCoupon", "tYtm", "tPut"].forEach(id => document.getElementById(id).addEventListener("input", () => { calc(); if (id === "tConv") drawPrice(current.price || {}); }));
+
+// ── 평가기준 표 ──────────────────────────────────────────────────────────
+(function methodTable() {
+  const t = document.getElementById("methodTable");
+  t.append(el("thead", {}, el("tr", {}, ...["우선순위", "항목", "가중치", "왜 보는가", "확인 지표"].map(h => el("th", {}, h)))));
+  const body = el("tbody");
+  CRITERIA.forEach(c => body.append(el("tr", {}, el("td", {}, c.tier), el("td", {}, c.name), el("td", {}, c.weight + "%"), el("td", {}, c.why), el("td", {}, c.checks.join(", ")))));
+  t.append(body);
+})();
+
+// ── Claude에게 분석 요청 ─────────────────────────────────────────────────
+function buildPrompt(name) {
+  const crit = CRITERIA.map(c => `- ${c.key} (${c.tier}, ${c.name}): ${c.checks.join(", ")}`).join("\n");
+  return `당신은 한국 메자닌(CB·BW·EB) 투자 심사역입니다. "${name}"에 대한 투자 전 기업분석 데이터를 작성하세요.
+
+규칙:
+- 당신이 알고 있는 가장 최근의 공개 정보(사업보고서, DART 공시, 시세)를 사용하고 기준 시점을 company.asOf에 적으세요(예: "2025년 3분기 보고서 기준").
+- 모르는 값은 지어내지 말고 null로 두세요. 추정한 값은 reason이나 risks에 "추정"이라고 밝히세요.
+- 금액 단위는 억원, 주가는 원. 비율은 % 숫자(예: 12.5).
+- 해당 기업을 특정할 수 없으면 {"error": "이유"}만 반환하세요.
+- 각 평가항목을 1~5점(5=매우 양호, 1=심각한 문제)으로 매기고 reason에 수치 근거를 한두 문장으로 적으세요.
+
+평가항목:
+${crit}
+
+다음 JSON 하나만 반환하세요(설명 문장 없이):
+{
+ "company": {"name": "", "ticker": "", "market": "KOSPI|KOSDAQ|KONEX|기타", "sector": "", "description": "", "asOf": ""},
+ "summary": "메자닌 투자 관점 결론 2~3문장",
+ "price": {"current": 0, "marketCap": 0, "high52": 0, "low52": 0, "avgDailyValue": 0, "volatility": 0,
+           "series": [{"m": "YYYY-MM", "p": 0}]  // 최근 24개월 월말 종가
+ },
+ "financials": {"unit": "억원", "years": ["최근 5개 회계연도"], "revenue": [], "operatingIncome": [], "netIncome": [], "ocf": [],
+   "totalAssets": 0, "totalLiabilities": 0, "equity": 0, "cash": 0, "shortDebt": 0, "totalDebt": 0, "interestExpense": 0},
+ "valuation": {"per": 0, "pbr": 0, "evEbitda": 0, "psr": 0},
+ "peers": [{"name": "", "marketCap": 0, "per": 0, "pbr": 0, "evEbitda": 0, "opMargin": 0, "revenueGrowth": 0}],  // 국내 상장 경쟁사 3~5개
+ "mezzanine": {"outstanding": [{"type": "CB|BW|EB", "round": "n회차", "amount": 0, "conversionPrice": 0, "refixFloor": 0, "maturity": "YYYY-MM", "putDate": "YYYY-MM"}],
+   "overhangPct": 0, "majorShareholderPct": 0, "pledgedPct": 0, "note": ""},
+ "scores": {${CRITERIA.map(c => `"${c.key}": {"score": 0, "reason": ""}`).join(", ")}},
+ "risks": [{"level": "high|mid|low", "text": ""}]
+}`;
+}
+
+let ctl = null;
+const statusEl = document.getElementById("status");
+const btn = document.getElementById("analyzeBtn"), stopBtn = document.getElementById("stopBtn");
+const ERR = {
+  not_granted: "Claude 사용을 허용해야 분석할 수 있습니다. 페이지를 새로고침한 뒤 허용을 눌러 주세요.",
+  rate_limited: "요청이 많습니다. 잠시 후 다시 시도하세요.",
+  invalid_json: "응답을 해석하지 못했습니다. 다시 분석을 눌러 주세요.",
+  cancelled: "분석을 중지했습니다.",
+};
+let samplePromise = (window.claude && typeof window.claude.use === "function") ? window.claude.use("sample") : Promise.resolve(null);
+
+document.getElementById("searchForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const name = document.getElementById("companyInput").value.trim();
+  if (!name) { statusEl.className = "status err"; statusEl.textContent = "기업명을 입력하세요."; return; }
+  const sample = await samplePromise;
+  if (!sample) { statusEl.className = "status err"; statusEl.textContent = "이 화면에서는 Claude 분석을 사용할 수 없습니다. claude.ai에서 열어 주세요."; return; }
+  ctl = new AbortController();
+  btn.disabled = true; stopBtn.hidden = false;
+  statusEl.className = "status loading-skel"; statusEl.textContent = `"${name}" 분석 중… 재무·주가·메자닌 발행이력을 정리하고 있습니다 (30초~2분).`;
+  try {
+    const data = await sample.json(buildPrompt(name), { signal: ctl.signal, modelTier: "complex" });
+    if (!data || typeof data !== "object") throw { code: "invalid_json" };
+    if (data.error) { statusEl.className = "status err"; statusEl.textContent = "기업을 찾지 못했습니다: " + data.error; return; }
+    data.isExample = false;
+    render(data);
+    statusEl.className = "status"; statusEl.textContent = `"${data.company?.name || name}" 분석 완료.`;
+  } catch (err) {
+    statusEl.className = "status err";
+    statusEl.textContent = ERR[err?.code] || ("분석에 실패했습니다" + (err?.message ? ": " + err.message : ". 다시 시도하세요."));
+  } finally {
+    btn.disabled = false; stopBtn.hidden = true;
+  }
+});
+stopBtn.addEventListener("click", () => ctl?.abort());
+
+let rT; window.addEventListener("resize", () => { clearTimeout(rT); rT = setTimeout(() => { drawPrice(current.price || {}); drawFin(current.financials || {}); }, 150); });
+render(EXAMPLE);
+</script>
