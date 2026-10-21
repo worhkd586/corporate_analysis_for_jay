@@ -37,3 +37,19 @@ CB(전환사채)·BW(신주인수권부사채)·EB(교환사채) 투자자가 �
 - 최신 사업보고서·분기보고서 (재무제표, 감사의견)
 - 주요사항보고서: 전환사채권/신주인수권부사채권 발행결정 (기발행 메자닌 조건)
 - 최대주주 등 소유주식 변동신고, 주식등의 대량보유상황보고서 (담보 계약)
+
+## DART 데이터 연동
+
+`scripts/dart_fetch.py`가 DART OpenAPI에서 아래 항목만 가져와 `mezzanine-dashboard/data/`에 저장하고, 대시보드 저장소(`index/names`, `companies/<corp_code>`)에 올립니다.
+
+| 항목 | DART API |
+|---|---|
+| 기업개황 | `company.json` |
+| 최근 5개년 재무제표(연결 우선), 최신 분기 대차대조표 | `fnlttSinglAcntAll.json` |
+| CB·BW·EB 발행결정(최근 4년) | `cvbdIsDecsn.json`, `bdwtIsDecsn.json`, `exbdIsDecsn.json` |
+| 최대주주 지분 | `hyslrSttus.json` |
+| 발행주식수(시가총액 계산용) | `stockTotqySttus.json` |
+
+- DART 데이터가 있는 기업은 Claude 호출 없이 표시하고, 상환능력·재무건전성 점수는 규칙으로 자동 계산합니다.
+- 주가·경쟁사·정성평가는 "Claude로 채우기" 버튼을 누를 때만 요청하며, DART 숫자는 프롬프트에 요약만 넣고 응답으로 다시 받지 않습니다.
+- 주가는 DART에 없어서 Claude 추정치입니다. 메자닌 금액은 발행결정 기준이라 이미 전환·상환된 물량이 포함될 수 있습니다.

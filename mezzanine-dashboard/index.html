@@ -131,6 +131,10 @@ details.method summary { cursor: pointer; font-weight: 600; }
 details.method table td { font-family: var(--font-body); white-space: normal; text-align: left; }
 details.method table th { text-align: left; }
 
+.src { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.04em; padding: 2px 7px; border-radius: 5px; background: var(--panel-2); color: var(--fg-muted); vertical-align: 1px; }
+.src.dart { background: var(--accent-soft); color: var(--accent); }
+.src:empty { display: none; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .loading-skel { animation: pulse 1.4s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: 0.45; } }
 @media (prefers-reduced-motion: reduce) { .loading-skel { animation: none; } }
@@ -149,7 +153,10 @@ details.method table th { text-align: left; }
       <button id="stopBtn" type="button" hidden>중지</button>
     </form>
   </header>
-  <div class="status" id="status" role="status"></div>
+  <div class="actions">
+    <div class="status" id="status" role="status"></div>
+    <button id="enrichBtn" type="button" hidden>Claude로 주가·경쟁사·정성평가 채우기</button>
+  </div>
 
   <div class="banner" id="banner">
     <b>주의</b>
@@ -178,11 +185,11 @@ details.method table th { text-align: left; }
   <!-- 상세 -->
   <div class="grid-2">
     <section class="panel" id="pricePanel">
-      <div class="panel-head"><h3>주가 추이 (월말 종가, 최근 24개월)</h3><span class="muted num" id="priceNote" style="font-size:0.78rem"></span></div>
+      <div class="panel-head"><h3>주가 추이 (월말 종가, 최근 24개월) <span class="src" id="src-price"></span></h3><span class="muted num" id="priceNote" style="font-size:0.78rem"></span></div>
       <div class="chart" id="priceChart"></div>
     </section>
     <section class="panel" id="finPanel">
-      <div class="panel-head"><h3>매출·영업이익 추이</h3>
+      <div class="panel-head"><h3>매출·영업이익 추이 <span class="src" id="src-finchart"></span></h3>
         <div class="legend"><span style="--c: var(--accent)">매출액</span><span style="--c: var(--series-2)">영업이익</span></div>
       </div>
       <div class="chart" id="finChart"></div>
@@ -191,27 +198,27 @@ details.method table th { text-align: left; }
 
   <div class="grid-2">
     <section class="panel">
-      <div class="panel-head"><h3>재무제표 요약</h3><span class="muted" style="font-size:0.78rem" id="finUnit"></span></div>
+      <div class="panel-head"><h3>재무제표 요약 <span class="src" id="src-fin"></span></h3><span class="muted" style="font-size:0.78rem" id="finUnit"></span></div>
       <div class="table-scroll"><table id="finTable"></table></div>
     </section>
     <section class="panel">
-      <div class="panel-head"><h3>상환능력·건전성 지표</h3><span class="muted" style="font-size:0.78rem">최근 연도 기준, 자동 계산</span></div>
+      <div class="panel-head"><h3>상환능력·건전성 지표 <span class="src" id="src-ratio"></span></h3><span class="muted" style="font-size:0.78rem">최근 연도 기준, 자동 계산</span></div>
       <div class="table-scroll"><table id="ratioTable"></table></div>
     </section>
   </div>
 
   <section class="panel">
-    <div class="panel-head"><h3>경쟁사 비교 · 밸류에이션</h3><span class="muted" style="font-size:0.78rem">음영 행이 분석 대상, 마지막 행은 경쟁사 중앙값</span></div>
+    <div class="panel-head"><h3>경쟁사 비교 · 밸류에이션 <span class="src" id="src-peer"></span></h3><span class="muted" style="font-size:0.78rem">음영 행이 분석 대상, 마지막 행은 경쟁사 중앙값</span></div>
     <div class="table-scroll"><table id="peerTable"></table></div>
   </section>
 
   <div class="grid-2">
     <section class="panel">
-      <div class="panel-head"><h3>기발행 메자닌 · 오버행</h3><span class="muted" style="font-size:0.78rem" id="overhangNote"></span></div>
+      <div class="panel-head"><h3>기발행 메자닌 · 오버행 <span class="src" id="src-mezz"></span></h3><span class="muted" style="font-size:0.78rem" id="overhangNote"></span></div>
       <div class="table-scroll"><table id="mezzTable"></table></div>
     </section>
     <section class="panel">
-      <div class="panel-head"><h3>주요 리스크 · 확인할 공시</h3></div>
+      <div class="panel-head"><h3>주요 리스크 · 확인할 공시 <span class="src" id="src-risk"></span></h3></div>
       <ul class="risk-list" id="riskList"></ul>
     </section>
   </div>
@@ -272,6 +279,7 @@ const TIERS = {
 // ── 가상 예시 기업 (화면 구성 확인용, 실제 기업 아님) ──────────────────────
 const EXAMPLE = {
   isExample: true,
+  sources: { price: "예시", fin: "예시", peer: "예시", mezz: "예시", risk: "예시" },
   company: { name: "예시전자 (가상)", ticker: "000000", market: "KOSDAQ", sector: "2차전지 장비", description: "화면 구성을 보여주기 위한 가상의 코스닥 장비 업체입니다.", asOf: "예시" },
   summary: "영업현금흐름은 흑자지만 단기차입금이 현금보다 많고, 기발행 CB 잔액이 시가총액의 12%에 달해 P1 오버행 항목이 약합니다. 담보 설정 또는 만기이자율 상향을 조건으로 검토할 만합니다.",
   price: { current: 8420, marketCap: 2650, high52: 12800, low52: 6900, avgDailyValue: 38, volatility: 52,
@@ -356,13 +364,16 @@ function render(d) {
   document.getElementById("banner").hidden = false;
   document.getElementById("bannerText").innerHTML = d.isExample
     ? "아래는 화면 구성을 보여주는 <strong>가상 예시 기업</strong> 데이터입니다. 기업명을 입력해 분석하세요."
-    : "Claude가 학습한 공개 정보 기반의 <strong>추정치</strong>입니다(기준시점: " + escapeHtml(d.company?.asOf || "미상") + "). 실시간 시세·DART 공시가 아니므로 투자 판단 전 원문 공시로 확인하세요.";
+    : d.dart
+    ? "재무제표·메자닌 발행이력·최대주주 지분은 <strong>DART 공시</strong>(" + escapeHtml(f.balanceAsOf || "") + ")입니다. 주가·경쟁사·정성평가는 Claude <strong>추정치</strong>이니 원문으로 확인하세요."
+    : "DART에 저장된 데이터가 없어 Claude가 학습한 공개 정보로 만든 <strong>추정치</strong>입니다(기준시점: " + escapeHtml(d.company?.asOf || "미상") + "). 투자 판단 전 원문 공시로 확인하세요.";
+  setSources(d.sources);
 
   // verdict
-  const { total, p1Fail } = computeTotal(d.scores);
+  const { total, p1Fail, coverage } = computeTotal(d.scores);
   const v = verdictOf(total, p1Fail);
   document.getElementById("totalScore").firstChild.textContent = total == null ? "—" : String(total);
-  const pill = document.getElementById("verdictPill"); pill.className = "pill " + v.cls; pill.textContent = v.text;
+  const pill = document.getElementById("verdictPill"); pill.className = "pill " + v.cls; pill.textContent = v.text + (total != null && coverage < 100 ? " · 가중치 " + coverage + "%만 평가" : "");
   document.getElementById("coName").textContent = d.company?.name || "—";
   const meta = document.getElementById("coMeta"); meta.replaceChildren();
   [d.company?.market, d.company?.ticker, d.company?.sector].filter(Boolean).forEach(t => meta.append(el("span", {}, t)));
@@ -371,7 +382,7 @@ function render(d) {
   [
     ["현재 주가", isNum(p.current) ? fmt(p.current) + "원" : "—"],
     ["시가총액", isNum(p.marketCap) ? fmt(p.marketCap) + "억원" : "—"],
-    ["메자닌 잔액 / 시총", pct(m.overhangPct)],
+    [m.issued ? "4년 메자닌 발행액 / 시총" : "메자닌 잔액 / 시총", pct(m.overhangPct)],
     ["최대주주 지분 (담보)", isNum(m.majorShareholderPct) ? pct(m.majorShareholderPct) + (isNum(m.pledgedPct) ? " (" + pct(m.pledgedPct, 0) + ")" : "") : "—"],
     ["일평균 거래대금", isNum(p.avgDailyValue) ? fmt(p.avgDailyValue) + "억원" : "—"],
   ].forEach(([l, val]) => kpis.append(el("div", { class: "kpi" }, el("span", { class: "l" }, l), el("span", { class: "v" }, val))));
@@ -530,16 +541,19 @@ function renderPeers(d) {
 
 function renderMezz(m) {
   const t = document.getElementById("mezzTable"); t.replaceChildren();
-  document.getElementById("overhangNote").textContent = m.note || "";
-  const list = m.outstanding || [];
-  if (!list.length) { t.append(el("tbody", {}, el("tr", {}, el("td", { class: "muted" }, "확인된 미상환 메자닌이 없습니다. DART '전환사채권발행결정' 공시로 재확인하세요.")))); return; }
-  t.append(el("thead", {}, el("tr", {}, ...["구분", "잔액(억원)", "전환/행사가", "리픽싱 하한", "현재가 대비", "풋 시점", "만기"].map(h => el("th", {}, h)))));
+  const dartList = Array.isArray(m.issued);
+  document.getElementById("overhangNote").textContent = dartList ? "최근 4년 발행결정 공시 기준 · 이미 전환·상환된 물량이 포함될 수 있음" + (m.note ? " · " + m.note : "") : (m.note || "");
+  const list = (dartList ? m.issued : m.outstanding) || [];
+  if (!list.length) { t.append(el("tbody", {}, el("tr", {}, el("td", { class: "muted" }, dartList ? "최근 4년간 CB·BW·EB 발행결정 공시가 없습니다." : "확인된 미상환 메자닌이 없습니다. DART '전환사채권발행결정' 공시로 재확인하세요.")))); return; }
   const cur = current.price?.current; const body = el("tbody");
-  list.forEach(x => {
-    const gap = isNum(cur) && x.conversionPrice > 0 ? (cur / x.conversionPrice - 1) * 100 : null;
-    body.append(el("tr", {}, el("td", {}, [x.type, x.round].filter(Boolean).join(" ")), el("td", {}, fmt(x.amount)), el("td", {}, fmt(x.conversionPrice)), el("td", {}, fmt(x.refixFloor)),
-      el("td", { style: isNum(gap) ? "color: var(--" + (gap >= 0 ? "ok" : "bad") + ")" : "" }, isNum(gap) ? (gap > 0 ? "+" : "") + fmt(gap, 1) + "%" : "—"), el("td", {}, x.putDate || "—"), el("td", {}, x.maturity || "—")));
-  });
+  const gapCell = x => { const gap = isNum(cur) && x.conversionPrice > 0 ? (cur / x.conversionPrice - 1) * 100 : null; return el("td", { style: isNum(gap) ? "color: var(--" + (gap >= 0 ? "ok" : "bad") + ")" : "" }, isNum(gap) ? (gap > 0 ? "+" : "") + fmt(gap, 1) + "%" : "—"); };
+  if (dartList) {
+    t.append(el("thead", {}, el("tr", {}, ...["구분", "결의일", "발행액(억원)", "전환/행사가", "최저 조정가", "현재가 대비", "표면/만기(%)", "만기"].map(h => el("th", {}, h)))));
+    list.forEach(x => body.append(el("tr", {}, el("td", {}, [x.type, x.round].filter(Boolean).join(" ")), el("td", {}, x.decided || "—"), el("td", {}, fmt(x.amount)), el("td", {}, fmt(x.conversionPrice)), el("td", {}, fmt(x.refixFloor)), gapCell(x), el("td", {}, fmt(x.coupon, 1) + " / " + fmt(x.ytm, 1)), el("td", {}, x.maturity || "—"))));
+  } else {
+    t.append(el("thead", {}, el("tr", {}, ...["구분", "잔액(억원)", "전환/행사가", "리픽싱 하한", "현재가 대비", "풋 시점", "만기"].map(h => el("th", {}, h)))));
+    list.forEach(x => body.append(el("tr", {}, el("td", {}, [x.type, x.round].filter(Boolean).join(" ")), el("td", {}, fmt(x.amount)), el("td", {}, fmt(x.conversionPrice)), el("td", {}, fmt(x.refixFloor)), gapCell(x), el("td", {}, x.putDate || "—"), el("td", {}, x.maturity || "—"))));
+  }
   t.append(body);
 }
 
@@ -613,39 +627,164 @@ ${crit}
 }`;
 }
 
+// ── 데이터 출처 표시 ────────────────────────────────────────────────────
+const SRC_IDS = { price: ["src-price"], fin: ["src-finchart", "src-fin", "src-ratio"], peer: ["src-peer"], mezz: ["src-mezz"], risk: ["src-risk"] };
+function setSources(src) {
+  for (const [k, ids] of Object.entries(SRC_IDS)) ids.forEach(id => {
+    const n = document.getElementById(id); const v = src?.[k] || "";
+    n.textContent = v; n.className = "src" + (v.startsWith("DART") ? " dart" : "");
+  });
+}
+
+// ── DART 숫자로 자동 채점 (Claude 호출 없음) ───────────────────────────
+const clamp = s => Math.max(1, Math.min(5, s));
+function ruleScores(f) {
+  const r = {};
+  const cov = isNum(f.cash) && f.shortDebt > 0 ? f.cash / f.shortDebt : f.shortDebt === 0 && isNum(f.cash) ? Infinity : null;
+  const ocf = last(f.ocf), opi = last(f.operatingIncome);
+  const icr = isNum(opi) && f.interestExpense > 0 ? opi / f.interestExpense : null;
+  if (cov != null || isNum(ocf)) {
+    let s = 3;
+    if (cov != null) s += cov >= 1.5 ? 1 : cov < 0.5 ? -1 : 0;
+    if (isNum(ocf)) s += ocf > 0 ? 0.5 : -1;
+    if (icr != null) s += icr >= 3 ? 0.5 : icr < 1 ? -1 : 0;
+    r.repayment = { score: clamp(Math.round(s)), reason: `현금/단기차입금 ${cov == null ? "—" : isFinite(cov) ? fmt(cov * 100, 0) + "%" : "차입금 없음"}, 영업현금흐름 ${fmt(ocf)}억원, 이자보상배율 ${icr == null ? "—" : fmt(icr, 1) + "x"}. DART 숫자로 자동 계산했습니다.` };
+  }
+  if (isNum(f.equity)) {
+    const dr = f.equity > 0 ? f.totalLiabilities / f.equity * 100 : null;
+    const losses = (f.netIncome || []).slice(-3).filter(v => isNum(v) && v < 0).length;
+    let s = f.equity <= 0 ? 1 : dr <= 100 ? 5 : dr <= 200 ? 4 : dr <= 300 ? 3 : 2;
+    if (losses >= 2) s -= 1;
+    r.soundness = { score: clamp(s), reason: `부채비율 ${dr == null ? "자본잠식" : fmt(dr, 0) + "%"}, 최근 3년 순손실 ${losses}회. DART 숫자로 자동 계산했고, 감사의견·관리종목 여부는 따로 확인해야 합니다.` };
+  }
+  return r;
+}
+
+function dartToView(doc) {
+  const f = doc.financials || {}, m = doc.mezzanine || {};
+  return {
+    isExample: false, dart: doc,
+    company: { ...doc.company, sector: doc.company?.indutyCode ? "업종코드 " + doc.company.indutyCode : "", asOf: f.balanceAsOf },
+    summary: "DART 공시 데이터를 불러왔습니다. 주가·경쟁사·정성 평가는 'Claude로 채우기'를 누르면 추가됩니다.",
+    price: {}, financials: f, valuation: {}, peers: [],
+    mezzanine: { issued: m.issued || [], majorShareholderPct: m.majorShareholderPct, note: m.majorShareholder ? "최대주주 " + m.majorShareholder : "" },
+    scores: ruleScores(f), risks: [],
+    sources: { fin: "DART · " + [f.fsDiv, f.balanceAsOf].filter(Boolean).join(" · "), mezz: "DART 발행결정 공시", price: "", peer: "", risk: "" },
+  };
+}
+
+// DART 데이터는 다시 보내지 않고, 빠진 항목만 짧게 받는다 (토큰 절약)
+function buildLitePrompt(v) {
+  const f = v.financials;
+  const brief = { company: v.company.name, ticker: v.company.ticker, market: v.company.market, years: f.years,
+    revenue: f.revenue, operatingIncome: f.operatingIncome, netIncome: f.netIncome,
+    bs: { asOf: f.balanceAsOf, liabilities: f.totalLiabilities, equity: f.equity, cash: f.cash, shortDebt: f.shortDebt },
+    mezzIssued: v.mezzanine.issued.map(x => [x.type, x.decided, x.amount, x.conversionPrice]),
+    majorShareholderPct: v.mezzanine.majorShareholderPct };
+  return `한국 메자닌(CB·BW·EB) 심사역으로서, 아래 DART 공시 데이터(억원)를 가진 기업의 빠진 정보만 채우세요. 재무 숫자는 반복하지 마세요.
+모르는 값은 null, 추정이면 reason에 "추정"이라고 쓰고, 주가 기준 시점을 asOf에 적으세요. 금액은 억원, 주가는 원.
+DART: ${JSON.stringify(brief)}
+JSON 하나만 반환:
+{"asOf":"","sector":"","price":{"current":0,"high52":0,"low52":0,"avgDailyValue":0,"volatility":0,"series":[{"m":"YYYY-MM","p":0}]},"evEbitda":null,"peers":[{"name":"","marketCap":0,"per":0,"pbr":0,"evEbitda":0,"opMargin":0,"revenueGrowth":0}],"pledgedPct":null,"summary":"","scores":{"conversion":{"score":0,"reason":""},"overhang":{"score":0,"reason":""},"governance":{"score":0,"reason":""},"business":{"score":0,"reason":""},"valuation":{"score":0,"reason":""}},"risks":[{"level":"high|mid|low","text":""}]}
+series: 최근 24개월 월말 종가. peers: 국내 상장 경쟁사 3개. summary: 메자닌 관점 결론 2문장. score: 1~5.`;
+}
+
+function mergeLite(v, a) {
+  const f = v.financials, p = { ...(a.price || {}) }, sh = v.dart.sharesOutstanding;
+  const mcap = isNum(p.current) && isNum(sh) ? p.current * sh / EOK : null;
+  if (mcap != null) p.marketCap = Math.round(mcap);
+  const issued = v.mezzanine.issued.reduce((s, x) => s + (x.amount || 0), 0);
+  return {
+    ...v,
+    company: { ...v.company, sector: a.sector || v.company.sector, asOf: v.company.asOf },
+    summary: a.summary || v.summary, price: p, peers: Array.isArray(a.peers) ? a.peers : [],
+    valuation: { per: mcap && last(f.netIncome) > 0 ? mcap / last(f.netIncome) : null, pbr: mcap && f.equity > 0 ? mcap / f.equity : null,
+                 psr: mcap && last(f.revenue) > 0 ? mcap / last(f.revenue) : null, evEbitda: isNum(a.evEbitda) ? a.evEbitda : null },
+    mezzanine: { ...v.mezzanine, pledgedPct: isNum(a.pledgedPct) ? a.pledgedPct : null, overhangPct: mcap && issued ? issued / mcap * 100 : null },
+    scores: { ...(a.scores || {}), ...ruleScores(f) },   // 상환능력·건전성은 항상 DART 계산값
+    risks: Array.isArray(a.risks) ? a.risks : [],
+    sources: { ...v.sources, price: "Claude 추정" + (a.asOf ? " · " + a.asOf : ""), peer: "PER·PBR: DART+추정 주가 · 경쟁사: Claude 추정", risk: "Claude 추정" },
+  };
+}
+const EOK = 1e8;
+
+// ── DART 저장소 (db) ────────────────────────────────────────────────────
+const hasClaude = window.claude && typeof window.claude.use === "function";
+const dbPromise = hasClaude ? window.claude.use("db") : Promise.resolve(null);
+const samplePromise = hasClaude ? window.claude.use("sample") : Promise.resolve(null);
+let indexPromise = dbPromise.then(async db => {
+  if (!db) return [];
+  try { const snap = await db.doc("index/names").get(); return snap.exists ? (snap.data().entries || []) : []; } catch { return []; }
+});
+const norm = s => String(s || "").replace(/\s|\(주\)|㈜|주식회사/g, "").toLowerCase();
+async function findDart(q) {
+  const entries = await indexPromise; const n = norm(q);
+  const hit = entries.find(e => norm(e.name) === n || e.ticker === q.trim()) || (entries.filter(e => norm(e.name).includes(n)).length === 1 ? entries.find(e => norm(e.name).includes(n)) : null);
+  if (!hit) return null;
+  const db = await dbPromise;
+  try { const snap = await db.doc("companies/" + hit.corpCode).get(); return snap.exists ? snap.data() : null; } catch { return null; }
+}
+
+// ── 화면 흐름 ───────────────────────────────────────────────────────────
 let ctl = null;
 const statusEl = document.getElementById("status");
-const btn = document.getElementById("analyzeBtn"), stopBtn = document.getElementById("stopBtn");
+const btn = document.getElementById("analyzeBtn"), stopBtn = document.getElementById("stopBtn"), enrichBtn = document.getElementById("enrichBtn");
 const ERR = {
   not_granted: "Claude 사용을 허용해야 분석할 수 있습니다. 페이지를 새로고침한 뒤 허용을 눌러 주세요.",
   rate_limited: "요청이 많습니다. 잠시 후 다시 시도하세요.",
-  invalid_json: "응답을 해석하지 못했습니다. 다시 분석을 눌러 주세요.",
+  invalid_json: "응답을 해석하지 못했습니다. 다시 눌러 주세요.",
   cancelled: "분석을 중지했습니다.",
 };
-let samplePromise = (window.claude && typeof window.claude.use === "function") ? window.claude.use("sample") : Promise.resolve(null);
+const setStatus = (text, cls = "") => { statusEl.className = "status " + cls; statusEl.textContent = text; };
+
+async function askClaude(prompt, label, tier) {
+  const sample = await samplePromise;
+  if (!sample) { setStatus("이 화면에서는 Claude 분석을 사용할 수 없습니다. claude.ai에서 열어 주세요.", "err"); return null; }
+  ctl = new AbortController();
+  btn.disabled = true; enrichBtn.disabled = true; stopBtn.hidden = false;
+  setStatus(label, "loading-skel");
+  try {
+    const data = await sample.json(prompt, { signal: ctl.signal, modelTier: tier });
+    if (!data || typeof data !== "object") throw { code: "invalid_json" };
+    return data;
+  } catch (err) {
+    setStatus(ERR[err?.code] || ("분석에 실패했습니다" + (err?.message ? ": " + err.message : ". 다시 시도하세요.")), "err");
+    return null;
+  } finally {
+    btn.disabled = false; enrichBtn.disabled = false; stopBtn.hidden = true;
+  }
+}
 
 document.getElementById("searchForm").addEventListener("submit", async e => {
   e.preventDefault();
   const name = document.getElementById("companyInput").value.trim();
-  if (!name) { statusEl.className = "status err"; statusEl.textContent = "기업명을 입력하세요."; return; }
-  const sample = await samplePromise;
-  if (!sample) { statusEl.className = "status err"; statusEl.textContent = "이 화면에서는 Claude 분석을 사용할 수 없습니다. claude.ai에서 열어 주세요."; return; }
-  ctl = new AbortController();
-  btn.disabled = true; stopBtn.hidden = false;
-  statusEl.className = "status loading-skel"; statusEl.textContent = `"${name}" 분석 중… 재무·주가·메자닌 발행이력을 정리하고 있습니다 (30초~2분).`;
-  try {
-    const data = await sample.json(buildPrompt(name), { signal: ctl.signal, modelTier: "complex" });
-    if (!data || typeof data !== "object") throw { code: "invalid_json" };
-    if (data.error) { statusEl.className = "status err"; statusEl.textContent = "기업을 찾지 못했습니다: " + data.error; return; }
-    data.isExample = false;
-    render(data);
-    statusEl.className = "status"; statusEl.textContent = `"${data.company?.name || name}" 분석 완료.`;
-  } catch (err) {
-    statusEl.className = "status err";
-    statusEl.textContent = ERR[err?.code] || ("분석에 실패했습니다" + (err?.message ? ": " + err.message : ". 다시 시도하세요."));
-  } finally {
-    btn.disabled = false; stopBtn.hidden = true;
+  if (!name) { setStatus("기업명을 입력하세요.", "err"); return; }
+  enrichBtn.hidden = true;
+  setStatus(`"${name}" DART 데이터 확인 중…`);
+  const doc = await findDart(name);
+  if (doc) {
+    render(dartToView(doc));
+    enrichBtn.hidden = false;
+    setStatus(`${doc.company?.name} DART 데이터 (${doc.fetchedAt?.slice(0, 10)} 수집). Claude 사용량 없이 표시했습니다.`);
+    return;
   }
+  const data = await askClaude(buildPrompt(name), `DART에 저장된 데이터가 없어 Claude로 추정 분석 중입니다 (30초~2분). DART 데이터를 원하면 Claude Code 세션에서 기업 추가를 요청하세요.`, "default");
+  if (!data) return;
+  if (data.error) { setStatus("기업을 찾지 못했습니다: " + data.error, "err"); return; }
+  data.isExample = false;
+  data.sources = { price: "Claude 추정", fin: "Claude 추정", peer: "Claude 추정", mezz: "Claude 추정", risk: "Claude 추정" };
+  render(data);
+  setStatus(`"${data.company?.name || name}" 추정 분석 완료. DART에 저장된 데이터가 없는 기업입니다.`);
+});
+
+enrichBtn.addEventListener("click", async () => {
+  if (!current?.dart) return;
+  const base = dartToView(current.dart);
+  const a = await askClaude(buildLitePrompt(base), "주가·경쟁사·정성평가를 채우는 중입니다 (20초~1분).", "default");
+  if (!a) return;
+  render(mergeLite(base, a));
+  enrichBtn.hidden = true;
+  setStatus("Claude 추정 항목을 채웠습니다. 출처 표시를 확인하세요.");
 });
 stopBtn.addEventListener("click", () => ctl?.abort());
 
