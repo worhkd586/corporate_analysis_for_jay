@@ -550,8 +550,8 @@ function renderMezz(m) {
   const cur = current.price?.current; const body = el("tbody");
   const gapCell = x => { const gap = isNum(cur) && x.conversionPrice > 0 ? (cur / x.conversionPrice - 1) * 100 : null; return el("td", { style: isNum(gap) ? "color: var(--" + (gap >= 0 ? "ok" : "bad") + ")" : "" }, isNum(gap) ? (gap > 0 ? "+" : "") + fmt(gap, 1) + "%" : "—"); };
   if (dartList) {
-    t.append(el("thead", {}, el("tr", {}, ...["구분", "결의일", "발행액(억원)", "전환/행사가", "최저 조정가", "현재가 대비", "표면/만기(%)", "만기"].map(h => el("th", {}, h)))));
-    list.forEach(x => body.append(el("tr", {}, el("td", {}, [x.type, x.round].filter(Boolean).join(" ")), el("td", {}, x.decided || "—"), el("td", {}, fmt(x.amount)), el("td", {}, fmt(x.conversionPrice)), el("td", {}, fmt(x.refixFloor)), gapCell(x), el("td", {}, fmt(x.coupon, 1) + " / " + fmt(x.ytm, 1)), el("td", {}, x.maturity || "—"))));
+    t.append(el("thead", {}, el("tr", {}, ...["구분", "결의일", "발행액(억원)", "전환/행사가", "최저 조정가", "현재가 대비", "표면/만기(%)", "전환청구 시작", "만기"].map(h => el("th", {}, h)))));
+    list.forEach(x => body.append(el("tr", {}, el("td", {}, [x.type, x.round].filter(Boolean).join(" ")), el("td", {}, x.decided || "—"), el("td", {}, fmt(x.amount)), el("td", {}, fmt(x.conversionPrice)), el("td", {}, fmt(x.refixFloor)), gapCell(x), el("td", {}, fmt(x.coupon, 1) + " / " + fmt(x.ytm, 1)), el("td", {}, x.convStart || "—"), el("td", {}, x.maturity || "—"))));
   } else {
     t.append(el("thead", {}, el("tr", {}, ...["구분", "잔액(억원)", "전환/행사가", "리픽싱 하한", "현재가 대비", "풋 시점", "만기"].map(h => el("th", {}, h)))));
     list.forEach(x => body.append(el("tr", {}, el("td", {}, [x.type, x.round].filter(Boolean).join(" ")), el("td", {}, fmt(x.amount)), el("td", {}, fmt(x.conversionPrice)), el("td", {}, fmt(x.refixFloor)), gapCell(x), el("td", {}, x.putDate || "—"), el("td", {}, x.maturity || "—"))));
