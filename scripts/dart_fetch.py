@@ -4,6 +4,7 @@
 사용법:
     DART_API_KEY=... python3 scripts/dart_fetch.py [--request-id ID] "기업명 또는 종목코드" [...]
     DART_API_KEY=... python3 scripts/dart_fetch.py --queue DIR
+    DART_API_KEY=... python3 scripts/dart_fetch.py --refresh-corp-codes   (상장사 목록 갱신)
         DIR: ArtifactData list(out_dir=DIR)로 저장한 requests/, results/ 문서.
              results가 없는 requests만 최대 10건 처리한다.
 
@@ -53,19 +54,27 @@ def get_json(path, **params):
     return data.get("list", []) if data.get("status") == "000" else []
 
 
-def corp_list():
-    os.makedirs(CACHE, exist_ok=True)
-    path = os.path.join(CACHE, "corpCode.xml")
-    fresh = os.path.exists(path) and (dt.datetime.now().timestamp() - os.path.getmtime(path) < 7 * 86400)
-    if not fresh:
-        with zipfile.ZipFile(io.BytesIO(get("corpCode.xml"))) as z:
-            with open(path, "wb") as f:
-                f.write(z.read(z.namelist()[0]))
+CORP_CODES = os.path.join(ROOT, "scripts", "corp_codes.json")
+
+
+def corp_list(refresh=False):
+    """상장사 목록 (corp_code, 이름, 종목코드).
+
+    DART corpCode.xml은 받는 데 4분 가까이 걸려서, 상장사만 추린 scripts/corp_codes.json을
+    레포에 두고 쓴다. 파일이 없거나 refresh=True면 새로 받아 그 파일을 갱신한다.
+    """
+    if not refresh and os.path.exists(CORP_CODES):
+        return json.load(open(CORP_CODES))
+    with zipfile.ZipFile(io.BytesIO(get("corpCode.xml"))) as z:
+        root = ET.fromstring(z.read(z.namelist()[0]))
     rows = []
-    for el in ET.parse(path).getroot().iter("list"):
+    for el in root.iter("list"):
         stock = (el.findtext("stock_code") or "").strip()
         if stock:  # 상장사만
             rows.append({"corp_code": el.findtext("corp_code"), "name": el.findtext("corp_name").strip(), "stock_code": stock})
+    rows.sort(key=lambda r: r["stock_code"])
+    with open(CORP_CODES, "w") as fh:
+        json.dump(rows, fh, ensure_ascii=False, separators=(",", ":"))
     return rows
 
 
@@ -310,6 +319,9 @@ def pending_requests(folder):
 
 
 def main(argv):
+    if argv[:1] == ["--refresh-corp-codes"]:
+        print(f"상장사 {len(corp_list(refresh=True))}곳 → {CORP_CODES}")
+        return
     if argv[:1] == ["--queue"]:
         todo = pending_requests(argv[1])
         if not todo:
@@ -334,6 +346,8 @@ def main(argv):
         writes.append({"op": "set", "collection": collection, "doc_id": doc_id, "file_path": path})
 
     rows = corp_list()
+    if not all(find_corp(q, rows)[0] for _, q in jobs):
+        rows = corp_list(refresh=True)  # 최근 상장사일 수 있으니 목록을 새로 받아 다시 찾는다
     now = lambda: dt.datetime.now().isoformat(timespec="seconds")
     for req, q in jobs:
         c, cands = find_corp(q, rows)
