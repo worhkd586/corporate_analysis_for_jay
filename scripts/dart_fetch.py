@@ -2,11 +2,14 @@
 """DART OpenAPI에서 메자닌 분석에 필요한 데이터만 뽑아 대시보드용 JSON으로 저장한다.
 
 사용법:
-    DART_API_KEY=... python3 scripts/dart_fetch.py "기업명 또는 종목코드" [...]
+    DART_API_KEY=... python3 scripts/dart_fetch.py [--request-id ID] "기업명 또는 종목코드" [...]
 
 출력:
-    mezzanine-dashboard/data/<corp_code>.json   기업별 데이터 (대시보드 db의 companies/<corp_code>)
-    mezzanine-dashboard/data/index.json         검색용 이름 목록 (대시보드 db의 index/names)
+    mezzanine-dashboard/data/<corp_code>.json   기업별 데이터
+    .cache/upload/writes.json                   대시보드 db에 올릴 batch 목록
+        companies/<corp_code>          기업 데이터
+        lookup/n_<hex>, t_<종목코드>   검색어 → corp_code (대시보드의 norm()과 같은 규칙)
+        results/<request id>           대시보드가 기다리는 완료 신호 (--request-id 지정 시)
 
 표준 출력은 기업당 한 줄 요약만 남긴다.
 """
@@ -254,30 +257,60 @@ def build(c):
     }
 
 
-def main(queries):
+def norm(s):
+    # 대시보드 index.html의 norm()과 같아야 한다
+    return re.sub(r"\s|\(주\)|㈜|주식회사", "", s or "").lower()
+
+
+def lookup_ids(text):
+    ids = ["n_" + norm(text).encode().hex()[:190]]
+    if re.fullmatch(r"\d{6}", text.strip()):
+        ids.append("t_" + text.strip())
+    return ids
+
+
+def main(argv):
+    req = None
+    if argv[:1] == ["--request-id"]:
+        req, argv = argv[1], argv[2:]
     if not KEY:
         sys.exit("DART_API_KEY 환경 변수가 없습니다.")
     os.makedirs(OUT, exist_ok=True)
+    up = os.path.join(CACHE, "upload")
+    os.makedirs(up, exist_ok=True)
+    writes = []
+
+    def add(collection, doc_id, body):
+        path = os.path.join(up, f"{collection}_{doc_id}.json")
+        with open(path, "w") as fh:
+            json.dump(body, fh, ensure_ascii=False, separators=(",", ":"))
+        writes.append({"op": "set", "collection": collection, "doc_id": doc_id, "file_path": path})
+
     rows = corp_list()
-    idx_path = os.path.join(OUT, "index.json")
-    index = json.load(open(idx_path)) if os.path.exists(idx_path) else {"entries": []}
-    for q in queries:
+    result = {"status": "error", "message": "요청한 기업이 없습니다."}
+    for q in argv:
         c, cands = find_corp(q, rows)
         if not c:
-            print(f"[{q}] 찾지 못함" + (": 후보 " + ", ".join(f"{x['name']}({x['stock_code']})" for x in cands) if cands else ""))
+            msg = f"[{q}] DART 상장사 목록에서 찾지 못함" + (": 후보 " + ", ".join(f"{x['name']}({x['stock_code']})" for x in cands) if cands else "")
+            print(msg)
+            result = {"status": "error", "message": msg, "candidates": cands}
             continue
         data = build(c)
-        with open(os.path.join(OUT, c["corp_code"] + ".json"), "w") as f:
-            json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
-        index["entries"] = [e for e in index["entries"] if e["corpCode"] != c["corp_code"]]
-        index["entries"].append({"name": data["company"]["name"], "ticker": c["stock_code"], "corpCode": c["corp_code"], "fetchedAt": data["fetchedAt"]})
+        with open(os.path.join(OUT, c["corp_code"] + ".json"), "w") as fh:
+            json.dump(data, fh, ensure_ascii=False, separators=(",", ":"))
+        add("companies", c["corp_code"], data)
+        for lid in dict.fromkeys(lookup_ids(q) + lookup_ids(data["company"]["name"]) + lookup_ids(c["stock_code"])):
+            add("lookup", lid, {"corpCode": c["corp_code"], "name": data["company"]["name"]})
+        result = {"status": "done", "corpCode": c["corp_code"], "name": data["company"]["name"]}
         f = data["financials"] or {}
         filled = sum(v is not None for k in ("revenue", "operatingIncome", "netIncome", "ocf") for v in f.get(k, []))
         print(f"[{q}] {data['company']['name']} {c['corp_code']} | 재무 {f.get('fsDiv','-')} {f.get('years',['-'])[0]}~{f.get('years',['-'])[-1]} 채움 {filled}/20 "
               f"| BS {f.get('balanceAsOf','-')} | 메자닌 {len(data['mezzanine']['issued'])}건 | 최대주주 {data['mezzanine'].get('majorShareholderPct')}%")
-    index["entries"].sort(key=lambda e: e["name"])
-    with open(idx_path, "w") as f:
-        json.dump(index, f, ensure_ascii=False, separators=(",", ":"))
+    if req:
+        add("results", req, {**result, "at": dt.datetime.now().isoformat(timespec="seconds")})
+    with open(os.path.join(up, "writes.json"), "w") as fh:
+        json.dump(writes, fh, ensure_ascii=False, indent=1)
+    print(f"업로드 목록: {os.path.join(up, 'writes.json')} ({len(writes)}건)")
 
 
 if __name__ == "__main__":
