@@ -40,7 +40,11 @@ CB(전환사채)·BW(신주인수권부사채)·EB(교환사채) 투자자가 �
 
 ## DART 데이터 연동
 
-`scripts/dart_fetch.py`가 DART OpenAPI에서 아래 항목만 가져와 `mezzanine-dashboard/data/`에 저장하고, 대시보드 저장소(`index/names`, `companies/<corp_code>`)에 올립니다.
+DART 데이터가 없는 기업을 검색하면 **DART에서 가져오기** 버튼이 나옵니다. 누르면 대시보드가 Claude Code 클라우드 세션(Haiku, 기본 권한 모드)을 띄우고, 그 세션이 `scripts/dart_fetch.py`를 실행해 결과를 대시보드 저장소에 올립니다. 세션이 확인을 물으면 대시보드의 "수집 세션 열기" 링크에서 허용합니다. 대시보드는 `results/<요청 id>` 문서가 생기면 화면을 바꿉니다. 한 번 받은 기업은 다음부터 바로 표시됩니다.
+
+저장소 구조: `companies/<corp_code>`(기업 데이터), `lookup/n_<정규화한 이름의 UTF-8 hex>`·`lookup/t_<종목코드>`(검색어 → corp_code), `results/<요청 id>`(완료 신호).
+
+`scripts/dart_fetch.py`가 DART OpenAPI에서 가져오는 항목:
 
 | 항목 | DART API |
 |---|---|
