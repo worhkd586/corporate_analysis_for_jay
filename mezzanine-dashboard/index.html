@@ -1656,7 +1656,7 @@ document.getElementById("searchForm").addEventListener("submit", async e => {
   }
   pendingQuery = name;
   dartBtn.hidden = false; estBtn.hidden = false;
-  setStatus(`"${name}"은(는) 아직 DART 데이터가 없습니다. 'DART 수집 요청'을 누르면 1시간 안에 자동으로 받아 오고, 기다리기 싫으면 Claude 추정으로 바로 볼 수 있습니다.`);
+  setStatus(`"${name}"은(는) 아직 DART 데이터가 없습니다. 'DART 수집 요청'을 누르면 평일 근무시간에는 1시간 안에 자동으로 받아 오고, 기다리기 싫으면 Claude 추정으로 바로 볼 수 있습니다.`);
 });
 
 let pendingQuery = "";
@@ -1685,7 +1685,7 @@ dartBtn.addEventListener("click", async () => {
     return;
   }
   dartBtn.hidden = true;
-  setStatus(`"${q}" 수집 요청을 저장했습니다. 매시 정각(오전 7시~밤 11시)에 자동으로 DART에서 받아 옵니다. 이 창을 열어 두면 끝나는 대로 화면이 바뀝니다.`);
+  setStatus(`"${q}" 수집 요청을 저장했습니다. 평일 근무시간(09~18시)에 매시간 자동으로 DART에서 받아 옵니다. 주말·야간 요청은 다음 근무시간에 처리됩니다. 이 창을 열어 두면 끝나는 대로 화면이 바뀝니다.`);
   const unsub = db.doc("results/" + reqId).onSnapshot(async snap => {
     if (!snap.exists) return;
     unsub(); dartBtn.disabled = false;
