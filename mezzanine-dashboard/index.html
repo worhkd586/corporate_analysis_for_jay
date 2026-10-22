@@ -682,12 +682,13 @@ function listingCheck(d) {
              lossRatio: isNum(pt) && pt < 0 && eq > 0 ? -pt / eq * 100 : (isNum(pt) && pt < 0 && isNum(eq) && eq <= 0 ? Infinity : (isNum(pt) ? 0 : null)) };
   });
   const last3 = rows.slice(-3), bigLoss = last3.filter(r => r.lossRatio != null && r.lossRatio > 50).length;
+  const maxRatio = Math.max(...last3.map(r => r.lossRatio ?? 0));   // 50% 바로 아래도 다음 해 넘을 수 있어 40%부터 주의
   let opStreak = 0; for (let i = rows.length - 1; i >= 0 && isNum(rows[i].op) && rows[i].op < 0; i--) opStreak++;
   const rev = last(f.revenue);
   const flags = [
-    { label: "법차손 > 자기자본 50% (최근 3년)", value: last3.some(r => r.lossRatio != null) ? bigLoss + "회" : "—",
-      cls: last3.every(r => r.lossRatio == null) ? "na" : bigLoss >= 2 ? "bad" : bigLoss === 1 ? "warn" : "ok",
-      note: "3년 중 2회 이상이면 관리종목 지정 요건" },
+    { label: "법차손 > 자기자본 50% (최근 3년)", value: last3.some(r => r.lossRatio != null) ? bigLoss + "회" + (maxRatio > 0 ? " · 최고 " + (isFinite(maxRatio) ? fmt(maxRatio, 1) + "%" : "잠식") : "") : "—",
+      cls: last3.every(r => r.lossRatio == null) ? "na" : bigLoss >= 2 ? "bad" : bigLoss === 1 || maxRatio > 40 ? "warn" : "ok",
+      note: "3년 중 2회 이상이면 관리종목 지정 요건. 40% 초과부터 주의" },
     { label: "최근 연도 매출액", value: isNum(rev) ? fmt(rev, 1) + "억원" : "—", cls: !isNum(rev) ? "na" : rev < 30 ? "bad" : rev < 50 ? "warn" : "ok",
       note: "30억원 미만이면 관리종목 지정 요건" },
     { label: "연속 영업손실", value: rows.some(r => isNum(r.op)) ? opStreak + "년" : "—", cls: !rows.some(r => isNum(r.op)) ? "na" : opStreak >= 4 ? "bad" : opStreak >= 2 ? "warn" : "ok",
@@ -712,7 +713,7 @@ function renderListing(d) {
   const body = el("tbody");
   rows.forEach(r => body.append(el("tr", {}, el("td", {}, r.year), el("td", {}, fmt(r.revenue, 1)), el("td", { style: isNum(r.op) && r.op < 0 ? "color: var(--bad)" : "" }, fmt(r.op, 1)),
     el("td", { style: isNum(r.pretax) && r.pretax < 0 ? "color: var(--bad)" : "" }, fmt(r.pretax, 1)), el("td", {}, fmt(r.equity, 1)),
-    el("td", { style: r.lossRatio > 50 ? "color: var(--bad);font-weight:600" : "" }, r.lossRatio == null ? "—" : !isFinite(r.lossRatio) ? "잠식" : r.lossRatio === 0 ? "이익" : fmt(r.lossRatio, 1) + "%"))));
+    el("td", { style: r.lossRatio > 50 ? "color: var(--bad);font-weight:600" : r.lossRatio > 40 ? "color: var(--warn);font-weight:600" : "" }, r.lossRatio == null ? "—" : !isFinite(r.lossRatio) ? "잠식" : r.lossRatio === 0 ? "이익" : fmt(r.lossRatio, 1) + "%"))));
   t.append(body);
 }
 
