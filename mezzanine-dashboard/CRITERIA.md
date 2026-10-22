@@ -64,7 +64,7 @@ Claude 호출 없이 바로 보이는 것:
 
 DART 데이터가 없는 기업을 검색하면 **DART 수집 요청** 버튼이 나옵니다. 누르면 요청이 대시보드 저장소에 쌓이고, Claude Code 세션에서 "대기 중인 DART 요청 처리해"라고 하면 `scripts/dart_fetch.py`가 한꺼번에 받아 올립니다(절차는 `CLAUDE.md`). 대시보드를 열어 두면 처리가 끝나는 대로 화면이 바뀌고, 한 번 받은 기업은 다음부터 바로 표시됩니다.
 
-저장소 구조: `companies/<corp_code>`(기업 데이터), `lookup/n_<정규화한 이름의 UTF-8 hex>`·`lookup/t_<종목코드>`(검색어 → corp_code), `results/<요청 id>`(완료 신호).
+저장소 구조: `companies/<corp_code>`(기업 데이터), `qual/<corp_code>`(정성평가 결과), `lookup/n_<정규화한 이름의 UTF-8 hex>`·`lookup/t_<종목코드>`(검색어 → corp_code), `results/<요청 id>`(완료 신호).
 
 `scripts/dart_fetch.py`가 DART OpenAPI에서 가져오는 항목:
 
@@ -79,5 +79,5 @@ DART 데이터가 없는 기업을 검색하면 **DART 수집 요청** 버튼이
 | 감사인·감사의견 | `accnutAdtorNmNdAdtOpinion.json` |
 
 - DART 데이터가 있는 기업은 Claude 호출 없이 표시하고, 상환능력·재무건전성 점수는 규칙으로 자동 계산합니다.
-- 주가·경쟁사·정성평가는 "Claude로 채우기" 버튼을 누를 때만 요청하며, DART 숫자는 프롬프트에 요약만 넣고 응답으로 다시 받지 않습니다.
+- 주가·경쟁사·나머지 점수는 "Claude로 채우기", 정성평가는 "Claude 정성평가 실행" 버튼을 누를 때만 요청합니다. "Claude로 채우기"는 DART 숫자를 프롬프트에 요약만 넣고 응답으로 다시 받지 않습니다.
 - 주가는 DART에 없어서 Claude 추정치입니다. 메자닌 금액은 발행결정 기준이라 이미 전환·상환된 물량이 포함될 수 있습니다.
