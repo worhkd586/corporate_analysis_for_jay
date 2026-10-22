@@ -135,6 +135,22 @@ details.method table th { text-align: left; }
 .src.dart { background: var(--accent-soft); color: var(--accent); }
 .src:empty { display: none; }
 .actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.qual-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+.qual { display: grid; gap: 8px; align-content: start; background: var(--panel-2); border-radius: 8px; padding: 14px; border-left: 4px solid var(--line); min-width: 0; }
+.qual.s-risk { border-left-color: var(--bad); }
+.qual.s-watch { border-left-color: var(--warn); }
+.qual.s-ok { border-left-color: var(--ok); }
+.qual p { margin: 0; font-size: 0.88rem; }
+.qual ul { margin: 0; padding-left: 18px; font-size: 0.8rem; color: var(--fg-muted); }
+.qual .ev { display: flex; flex-wrap: wrap; gap: 6px; font-size: 0.75rem; }
+.qual .ev a, .disc a { color: var(--accent); text-decoration: none; }
+.qual .ev a:hover, .disc a:hover { text-decoration: underline; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.chip { font-size: 0.78rem; padding: 4px 10px; border-radius: 999px; }
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+.chip .n { font-family: var(--font-num); margin-left: 4px; opacity: 0.8; }
+.extra { margin: 12px 0 0; padding-left: 18px; font-size: 0.88rem; }
+.extra li + li { margin-top: 4px; }
 .loading-skel { animation: pulse 1.4s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: 0.45; } }
 @media (prefers-reduced-motion: reduce) { .loading-skel { animation: none; } }
@@ -183,6 +199,27 @@ details.method table th { text-align: left; }
 
   <!-- 우선순위별 항목 -->
   <section class="tier" id="tiers"></section>
+
+  <section class="panel" id="listingPanel">
+    <div class="panel-head"><h3>상장유지 요건 간이 점검 <span class="src" id="src-listing"></span></h3><span class="muted" style="font-size:0.78rem">코스닥 관리종목 요건 기준 · 기술특례 유예 여부는 정성평가에서 확인</span></div>
+    <div class="kpis" id="listingFlags"></div>
+    <div class="table-scroll" style="margin-top:12px"><table id="listingTable"></table></div>
+  </section>
+
+  <section class="panel" id="qualPanel">
+    <div class="panel-head">
+      <h3>정성평가 · 특이사항 <span class="src" id="src-qual"></span></h3>
+      <div class="actions"><span class="muted" id="qualMeta" style="font-size:0.78rem"></span><button id="qualBtn" type="button" hidden>Claude 정성평가 실행</button></div>
+    </div>
+    <p class="muted" id="qualSummary" style="margin:0 0 12px;max-width:75ch"></p>
+    <div class="qual-grid" id="qualGrid"></div>
+    <ul class="extra" id="qualExtra"></ul>
+    <div style="margin-top:18px">
+      <h3>최근 2년 공시 <span class="src" id="src-disc"></span></h3>
+      <div class="chips" id="discChips"></div>
+      <div class="table-scroll" style="max-height:320px;overflow:auto;margin-top:8px"><table id="discTable" class="disc"></table></div>
+    </div>
+  </section>
 
   <!-- 상세 -->
   <div class="grid-2">
@@ -288,7 +325,7 @@ const EXAMPLE = {
     series: [9800,10400,11200,10100,9400,8800,9100,9900,11800,12600,12100,10900,10200,9600,8900,8300,7600,7100,7400,8100,8700,8200,7900,8420].map((p, i) => ({ m: ym(2024, 11 + i), p })) },
   financials: { unit: "억원", years: ["2021","2022","2023","2024","2025"],
     revenue: [812, 1046, 1210, 1102, 1288], operatingIncome: [42, 88, 104, 31, 66], netIncome: [21, 61, 72, -18, 34],
-    ocf: [35, 70, 92, 12, 58], totalAssets: 2140, totalLiabilities: 1310, equity: 830, cash: 186, shortDebt: 342, totalDebt: 620, interestExpense: 29 },
+    ocf: [35, 70, 92, 12, 58], pretaxIncome: [28, 76, 91, -22, 41], equityHist: [610, 680, 760, 742, 830], totalAssets: 2140, totalLiabilities: 1310, equity: 830, cash: 186, shortDebt: 342, totalDebt: 620, interestExpense: 29 },
   valuation: { per: 77.9, pbr: 3.19, evEbitda: 24.1, psr: 2.06 },
   peers: [
     { name: "비교사 A (가상)", marketCap: 5400, per: 21.4, pbr: 2.1, evEbitda: 11.8, opMargin: 9.2, revenueGrowth: 14.0 },
@@ -354,6 +391,7 @@ function ratios(f) {
     ["이자보상배율", isNum(opi) && f.interestExpense > 0 ? opi / f.interestExpense : null, "x", v => v >= 3 ? "ok" : v >= 1 ? "warn" : "bad", "1 미만이면 이자도 못 냄"],
     ["영업이익률", isNum(opi) && rev > 0 ? opi / rev * 100 : null, "%", v => v >= 8 ? "ok" : v >= 0 ? "warn" : "bad", ""],
     ["영업현금흐름", ocf, f.unit, v => v > 0 ? "ok" : "bad", "적자면 상환재원 외부조달 의존"],
+    ["현금 소진 기간", isNum(ocf) && ocf < 0 && isNum(f.cash) ? f.cash / -ocf * 12 : null, "개월", v => v >= 24 ? "ok" : v >= 12 ? "warn" : "bad", "현금 ÷ 연간 영업현금 유출. 풋 시점보다 짧으면 추가 조달 필요"],
     ["자본잠식 여부", isNum(f.equity) ? (f.equity <= 0 ? "완전잠식" : "없음") : null, "", v => v === "없음" ? "ok" : "bad", "자본총계 기준 간이 판단"],
   ];
 }
@@ -370,12 +408,17 @@ function render(d) {
     ? "재무제표·메자닌 발행이력·최대주주 지분은 <strong>DART 공시</strong>(" + escapeHtml(f.balanceAsOf || "") + ")입니다. 주가·경쟁사·정성평가는 Claude <strong>추정치</strong>이니 원문으로 확인하세요."
     : "DART에 저장된 데이터가 없어 Claude가 학습한 공개 정보로 만든 <strong>추정치</strong>입니다(기준시점: " + escapeHtml(d.company?.asOf || "미상") + "). 투자 판단 전 원문 공시로 확인하세요.";
   setSources(d.sources);
+  renderListing(d);
+  renderQual(d);
+  renderDisclosures(d.dart?.disclosures);
 
   // verdict
   const { total, p1Fail, coverage } = computeTotal(d.scores);
   const v = verdictOf(total, p1Fail);
   document.getElementById("totalScore").firstChild.textContent = total == null ? "—" : String(total);
-  const pill = document.getElementById("verdictPill"); pill.className = "pill " + v.cls; pill.textContent = v.text + (total != null && coverage < 100 ? " · 가중치 " + coverage + "%만 평가" : "");
+  const pill = document.getElementById("verdictPill"); pill.className = "pill " + v.cls; const qualRisk = (d.qual?.items || []).filter(x => x.status === "risk").length;
+  pill.textContent = v.text + (total != null && coverage < 100 ? " · 가중치 " + coverage + "%만 평가" : "") + (qualRisk ? " · 정성 위험 " + qualRisk + "건" : "");
+  if (qualRisk && v.cls === "ok") pill.className = "pill warn";
   document.getElementById("coName").textContent = d.company?.name || "—";
   const meta = document.getElementById("coMeta"); meta.replaceChildren();
   [d.company?.market, d.company?.ticker, d.company?.sector].filter(Boolean).forEach(t => meta.append(el("span", {}, t)));
@@ -629,8 +672,194 @@ ${crit}
 }`;
 }
 
+// ── 상장유지 요건 간이 점검 (DART 재무로 계산, Claude 호출 없음) ─────────────
+// 코스닥 관리종목 요건을 단순화한 것. 기술특례·성장성 특례 상장사는 유예 기간이 있어 정성평가에서 확인한다.
+function listingCheck(d) {
+  const f = d.financials || {}, yrs = f.years || [];
+  const rows = yrs.map((y, i) => {
+    const pt = f.pretaxIncome?.[i], eq = f.equityHist?.[i];
+    return { year: y, revenue: f.revenue?.[i], op: f.operatingIncome?.[i], pretax: pt, equity: eq,
+             lossRatio: isNum(pt) && pt < 0 && eq > 0 ? -pt / eq * 100 : (isNum(pt) && pt < 0 && isNum(eq) && eq <= 0 ? Infinity : (isNum(pt) ? 0 : null)) };
+  });
+  const last3 = rows.slice(-3), bigLoss = last3.filter(r => r.lossRatio != null && r.lossRatio > 50).length;
+  let opStreak = 0; for (let i = rows.length - 1; i >= 0 && isNum(rows[i].op) && rows[i].op < 0; i--) opStreak++;
+  const rev = last(f.revenue);
+  const flags = [
+    { label: "법차손 > 자기자본 50% (최근 3년)", value: last3.some(r => r.lossRatio != null) ? bigLoss + "회" : "—",
+      cls: last3.every(r => r.lossRatio == null) ? "na" : bigLoss >= 2 ? "bad" : bigLoss === 1 ? "warn" : "ok",
+      note: "3년 중 2회 이상이면 관리종목 지정 요건" },
+    { label: "최근 연도 매출액", value: isNum(rev) ? fmt(rev, 1) + "억원" : "—", cls: !isNum(rev) ? "na" : rev < 30 ? "bad" : rev < 50 ? "warn" : "ok",
+      note: "30억원 미만이면 관리종목 지정 요건" },
+    { label: "연속 영업손실", value: rows.some(r => isNum(r.op)) ? opStreak + "년" : "—", cls: !rows.some(r => isNum(r.op)) ? "na" : opStreak >= 4 ? "bad" : opStreak >= 2 ? "warn" : "ok",
+      note: "장기 영업손실은 상장적격성 실질심사 사유가 될 수 있음" },
+    { label: "자본잠식", value: isNum(f.equity) ? (f.equity <= 0 ? "완전잠식" : "없음") : "—", cls: !isNum(f.equity) ? "na" : f.equity <= 0 ? "bad" : "ok",
+      note: "자본금 대비 잠식률은 원문 확인" },
+  ];
+  return { rows, flags, market: d.company?.market };
+}
+function renderListing(d) {
+  const panel = document.getElementById("listingPanel");
+  const box = document.getElementById("listingFlags"), t = document.getElementById("listingTable");
+  box.replaceChildren(); t.replaceChildren();
+  if (!d.dart && !d.isExample) { panel.hidden = true; return; }
+  panel.hidden = false;
+  const { rows, flags, market } = listingCheck(d);
+  flags.forEach(x => box.append(el("div", { class: "kpi" }, el("span", { class: "l" }, x.label),
+    el("span", { class: "v" }, x.value), el("span", { class: "pill " + x.cls, style: "margin-top:4px" }, { ok: "양호", warn: "주의", bad: "요건 해당", na: "자료 없음" }[x.cls]),
+    el("span", { class: "l" }, x.note))));
+  if (market && market !== "KOSDAQ") box.append(el("div", { class: "kpi" }, el("span", { class: "l" }, "시장"), el("span", { class: "v" }, market), el("span", { class: "l" }, "유가증권시장 요건은 코스닥과 다르니 참고만 하세요")));
+  t.append(el("thead", {}, el("tr", {}, ...["연도", "매출액", "영업손익", "법인세차감전손익", "자기자본", "법차손/자기자본"].map(h => el("th", {}, h)))));
+  const body = el("tbody");
+  rows.forEach(r => body.append(el("tr", {}, el("td", {}, r.year), el("td", {}, fmt(r.revenue, 1)), el("td", { style: isNum(r.op) && r.op < 0 ? "color: var(--bad)" : "" }, fmt(r.op, 1)),
+    el("td", { style: isNum(r.pretax) && r.pretax < 0 ? "color: var(--bad)" : "" }, fmt(r.pretax, 1)), el("td", {}, fmt(r.equity, 1)),
+    el("td", { style: r.lossRatio > 50 ? "color: var(--bad);font-weight:600" : "" }, r.lossRatio == null ? "—" : !isFinite(r.lossRatio) ? "잠식" : r.lossRatio === 0 ? "이익" : fmt(r.lossRatio, 1) + "%"))));
+  t.append(body);
+}
+
+// ── 공시 키워드 (제목 기반, Claude 호출 없음) ──────────────────────────────
+const DISC_FLAGS = [
+  ["메자닌 발행", /전환사채|신주인수권부사채|교환사채/],
+  ["유상증자·감자", /유상증자|감자|무상증자/],
+  ["최대주주 변경", /최대주주.{0,6}변경/],
+  ["주식 담보", /담보/],
+  ["자기주식", /자기주식/],
+  ["파생·PRS·TRS", /파생|스왑|PRS|TRS/i],
+  ["소송·분쟁", /소송|가처분|중재/],
+  ["불성실공시·제재", /불성실|제재|과징금/],
+  ["횡령·배임", /횡령|배임/],
+  ["관리종목·투자경고", /관리종목|투자주의|투자경고|투자위험|상장적격성|매매거래정지|거래정지/],
+  ["감사의견·계속기업", /의견거절|한정|계속기업|감사인/],
+  ["기술이전·주요계약", /기술이전|라이선스|공급계약|판매.?공급/],
+  ["타법인 출자·양수도", /타법인주식|양수|양도|합병|분할/],
+];
+let discFilter = null;
+function renderDisclosures(list) {
+  const chips = document.getElementById("discChips"), t = document.getElementById("discTable");
+  chips.replaceChildren(); t.replaceChildren();
+  if (!Array.isArray(list)) { chips.append(el("span", { class: "muted", style: "font-size:0.85rem" }, "DART 데이터가 있는 기업만 공시 목록을 보여줍니다.")); return; }
+  const all = el("button", { type: "button", class: "chip", "aria-pressed": String(!discFilter) }, "전체", el("span", { class: "n" }, String(list.length)));
+  all.addEventListener("click", () => { discFilter = null; renderDisclosures(list); });
+  chips.append(all);
+  for (const [label, rx] of DISC_FLAGS) {
+    const n = list.filter(x => rx.test(x.t)).length; if (!n) continue;
+    const b = el("button", { type: "button", class: "chip", "aria-pressed": String(discFilter === label) }, label, el("span", { class: "n" }, String(n)));
+    b.addEventListener("click", () => { discFilter = discFilter === label ? null : label; renderDisclosures(list); });
+    chips.append(b);
+  }
+  const rx = DISC_FLAGS.find(([l]) => l === discFilter)?.[1];
+  const rows = rx ? list.filter(x => rx.test(x.t)) : list;
+  t.append(el("thead", {}, el("tr", {}, el("th", {}, "접수일"), el("th", { style: "text-align:left" }, "공시"), el("th", { style: "text-align:left" }, "제출인"))));
+  const body = el("tbody");
+  rows.forEach(x => {
+    const a = el("a", { href: "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=" + encodeURIComponent(x.n || ""), target: "_blank", rel: "noopener" }, x.t);
+    body.append(el("tr", {}, el("td", {}, (x.d || "").replace(/(\d{4})(\d{2})(\d{2})/, "$1-$2-$3")), el("td", { style: "text-align:left;white-space:normal;font-family:var(--font-body)" }, a), el("td", { style: "text-align:left;font-family:var(--font-body)" }, x.f || "")));
+  });
+  t.append(body);
+}
+
+// ── 정성평가: 숫자로 일률화하기 어려운 항목은 Claude가 공시 목록과 함께 검토 ─────
+const QUAL_ITEMS = [
+  { key: "listing", name: "상장유지·관리종목 리스크", checks: ["기술특례·성장성 특례 상장 여부와 유예 종료 연도", "법차손·매출 요건 해소 계획", "투자주의·경고 지정 이력"] },
+  { key: "contracts", name: "주가연계 파생·특수 계약", checks: ["PRS·TRS 등 주가수익스왑 계약 상대방과 정산 조건", "자기주식 교환·처분 구조", "콜옵션·매도청구권 행사자와 비율"] },
+  { key: "mezzterms", name: "기존 메자닌 조건 특이사항", checks: ["인수자 구성과 특수관계 여부", "리픽싱·조기상환(풋) 일정", "중도상환·만기 전 취득 이력"] },
+  { key: "audit", name: "감사의견·회계 이슈", checks: ["감사의견과 강조사항", "계속기업 불확실성 문구", "감사인 교체·정정공시"] },
+  { key: "control", name: "최대주주·지배구조", checks: ["최대주주 지분 담보·질권 설정", "최대주주 변경·경영권 분쟁", "특수관계자 거래"] },
+  { key: "legal", name: "소송·제재·불성실공시", checks: ["진행 중 소송 금액과 자기자본 대비 비중", "불성실공시법인 지정·벌점", "횡령·배임 혐의"] },
+  { key: "funding", name: "자금조달·현금 소진", checks: ["최근 조달 이력과 반복 여부", "조달자금 사용처 이행", "현금 소진 기간 대비 풋 일정"] },
+  { key: "business", name: "사업·파이프라인 이벤트", checks: ["기술이전·라이선스 계약 조건과 반환 리스크", "임상·인허가 일정", "주요 고객·매출 의존도"] },
+];
+const QUAL_LABEL = { risk: ["bad", "위험"], watch: ["warn", "주의"], check: ["na", "확인 필요"], ok: ["ok", "양호"] };
+
+function renderQual(d) {
+  const grid = document.getElementById("qualGrid"), extra = document.getElementById("qualExtra");
+  const btn = document.getElementById("qualBtn"), meta = document.getElementById("qualMeta");
+  grid.replaceChildren(); extra.replaceChildren();
+  const q = d.qual;
+  btn.hidden = !d.dart; btn.textContent = q ? "정성평가 다시 실행" : "Claude 정성평가 실행";
+  meta.textContent = q?.generatedAt ? "평가 " + q.generatedAt.slice(0, 16).replace("T", " ") : "";
+  document.getElementById("qualSummary").textContent = q?.summary || (d.dart ? "아직 정성평가를 실행하지 않았습니다. 공시 목록과 재무를 근거로 Claude가 항목별로 검토합니다 (1~3분)." : d.isExample ? "예시 화면에서는 정성평가를 실행하지 않습니다." : "정성평가는 DART 데이터가 있는 기업만 지원합니다. 'DART 수집 요청'으로 먼저 받아 오세요.");
+  const byNo = new Map((d.dart?.disclosures || []).map(x => [x.n, x]));
+  for (const it of QUAL_ITEMS) {
+    const r = q?.items?.find(x => x.key === it.key);
+    const [cls, lab] = QUAL_LABEL[r?.status] || ["na", "미평가"];
+    const card = el("div", { class: "qual s-" + (r?.status || "none") },
+      el("div", { class: "crit-top" }, el("h3", {}, it.name), el("span", { class: "pill " + cls }, lab)));
+    if (r?.finding) card.append(el("p", {}, r.finding));
+    const ev = (r?.evidence || []).map(n => byNo.get(String(n))).filter(Boolean);
+    if (ev.length) {
+      const evBox = el("div", { class: "ev" });
+      ev.slice(0, 4).forEach(x => evBox.append(el("a", { href: "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=" + encodeURIComponent(x.n), target: "_blank", rel: "noopener" }, (x.d || "").slice(0, 8).replace(/(\d{4})(\d{2})(\d{2})/, "$1.$2.$3") + " " + x.t)));
+      card.append(evBox);
+    }
+    const ul = el("ul"); (r?.checks?.length ? r.checks : it.checks).forEach(c => ul.append(el("li", {}, c))); card.append(ul);
+    grid.append(card);
+  }
+  (q?.extra || []).forEach(x => extra.append(el("li", {}, el("span", { class: "pill " + (QUAL_LABEL[x.status]?.[0] || "na"), style: "margin-right:8px" }, QUAL_LABEL[x.status]?.[1] || "참고"), x.text || "")));
+}
+
+function buildQualPrompt(v) {
+  const d = v.dart, f = d.financials || {};
+  const listing = listingCheck(v);
+  const brief = {
+    company: d.company, sharesOutstanding: d.sharesOutstanding,
+    financials: { unit: "억원", years: f.years, revenue: f.revenue, operatingIncome: f.operatingIncome, pretaxIncome: f.pretaxIncome, netIncome: f.netIncome, ocf: f.ocf, equityHist: f.equityHist,
+      balance: { asOf: f.balanceAsOf, cash: f.cash, shortDebt: f.shortDebt, totalDebt: f.totalDebt, liabilities: f.totalLiabilities, equity: f.equity } },
+    listingFlags: listing.flags.map(x => x.label + ": " + x.value),
+    mezzanine: d.mezzanine, audit: d.audit,
+  };
+  const disc = (d.disclosures || []).slice(0, 200).map(x => `${x.d}|${x.t}|${x.n}`).join("\n");
+  return `당신은 한국 메자닌(CB·BW·EB) 투자 심사역입니다. 아래 기업의 정성평가를 하세요. 숫자로 일률화하기 어려운 특이사항(파생·특수 계약, 상장유지 특례, 감사·지배구조·소송, 자금조달 패턴, 사업 이벤트)을 찾아내는 것이 목적입니다.
+
+규칙:
+- 근거는 아래 DART 데이터와 공시 목록이 우선입니다. 공시 제목에서 드러나는 사실은 evidence에 해당 접수번호(rcept_no)를 넣으세요. 목록에 없는 접수번호는 절대 만들지 마세요.
+- 당신이 알고 있는 공개 정보(예: PRS·TRS 계약, 기술특례상장 여부와 유예 종료 시점, 임상 일정)도 써도 되지만, finding에 "(공시 목록 외 정보, 확인 필요)"라고 표시하세요.
+- 확실하지 않으면 status를 "check"로 두고 무엇을 확인해야 하는지 checks에 적으세요.
+- status: risk(투자 판단에 직접 영향) / watch(조건 협상이나 모니터링 필요) / check(정보 부족) / ok(특이사항 없음)
+- finding은 2~3문장, 구체적 사실과 숫자 위주. checks는 원문에서 확인할 것 1~3개.
+
+항목 key: ${QUAL_ITEMS.map(i => i.key + "(" + i.name + ")").join(", ")}
+
+DART 데이터:
+${JSON.stringify(brief)}
+
+최근 2년 공시 목록 (접수일|제목|접수번호):
+${disc}
+
+JSON 하나만 반환:
+{"summary":"메자닌 투자 관점 정성 결론 2~3문장","techSpecial":{"isTechSpecial":null,"listedYear":null,"graceUntil":null},"items":[{"key":"","status":"risk|watch|check|ok","finding":"","evidence":["rcept_no"],"checks":[""]}],"extra":[{"status":"risk|watch|check","text":"위 항목에 안 맞는 추가 특이사항"}]}`;
+}
+
+async function loadQual(corpCode) {
+  const db = await dbPromise; if (!db || !corpCode) return null;
+  try { const snap = await db.doc("qual/" + corpCode).get(); return snap.exists ? snap.data() : null; } catch { return null; }
+}
+async function showDart(doc) {
+  const view = dartToView(doc);
+  render(view);
+  const q = await loadQual(doc.company?.corpCode);
+  if (q && current?.dart === doc) { current.qual = q; current.sources = { ...current.sources, qual: "Claude 정성평가" }; render(current); }
+}
+
+document.getElementById("qualBtn").addEventListener("click", async () => {
+  const v = current; if (!v?.dart) return;
+  const qb = document.getElementById("qualBtn"); qb.disabled = true;
+  const a = await askClaude(buildQualPrompt(v), "공시 목록과 재무를 근거로 정성평가 중입니다 (1~3분).", "complex");
+  qb.disabled = false;
+  if (!a) return;
+  if (!Array.isArray(a.items)) { setStatus("정성평가 응답 형식이 맞지 않습니다. 다시 실행해 주세요.", "err"); return; }
+  const q = { ...a, generatedAt: new Date().toISOString() };
+  const db = await dbPromise;
+  if (db) { try { await db.doc("qual/" + v.dart.company.corpCode).set(q); } catch {} }
+  if (current !== v) return;
+  current.qual = q; current.sources = { ...current.sources, qual: "Claude 정성평가" };
+  render(current);
+  const n = a.items.filter(x => x.status === "risk").length;
+  setStatus(`정성평가를 마쳤습니다. 위험 ${n}건. 결과는 저장돼 다음에 바로 보입니다.`);
+});
+
 // ── 데이터 출처 표시 ────────────────────────────────────────────────────
-const SRC_IDS = { price: ["src-price"], fin: ["src-finchart", "src-fin", "src-ratio"], peer: ["src-peer"], mezz: ["src-mezz"], risk: ["src-risk"] };
+const SRC_IDS = { price: ["src-price"], fin: ["src-finchart", "src-fin", "src-ratio"], peer: ["src-peer"], mezz: ["src-mezz"], risk: ["src-risk"],
+  listing: ["src-listing"], qual: ["src-qual"], disc: ["src-disc"] };
 function setSources(src) {
   for (const [k, ids] of Object.entries(SRC_IDS)) ids.forEach(id => {
     const n = document.getElementById(id); const v = src?.[k] || "";
@@ -671,7 +900,8 @@ function dartToView(doc) {
     price: {}, financials: f, valuation: {}, peers: [],
     mezzanine: { issued: m.issued || [], majorShareholderPct: m.majorShareholderPct, note: m.majorShareholder ? "최대주주 " + m.majorShareholder : "" },
     scores: ruleScores(f), risks: [],
-    sources: { fin: "DART · " + [f.fsDiv, f.balanceAsOf].filter(Boolean).join(" · "), mezz: "DART 발행결정 공시", price: "", peer: "", risk: "" },
+    sources: { fin: "DART · " + [f.fsDiv, f.balanceAsOf].filter(Boolean).join(" · "), mezz: "DART 발행결정 공시", price: "", peer: "", risk: "",
+               listing: "DART 재무 자동 계산", disc: "DART 공시목록" + (doc.fetchedAt ? " · " + doc.fetchedAt.slice(0, 10) + " 수집" : ""), qual: "" },
   };
 }
 
@@ -705,7 +935,7 @@ function mergeLite(v, a) {
     mezzanine: { ...v.mezzanine, pledgedPct: isNum(a.pledgedPct) ? a.pledgedPct : null, overhangPct: mcap && issued ? issued / mcap * 100 : null },
     scores: { ...(a.scores || {}), ...ruleScores(f) },   // 상환능력·건전성은 항상 DART 계산값
     risks: Array.isArray(a.risks) ? a.risks : [],
-    sources: { ...v.sources, price: "Claude 추정" + (a.asOf ? " · " + a.asOf : ""), peer: "PER·PBR: DART+추정 주가 · 경쟁사: Claude 추정", risk: "Claude 추정" },
+    sources: { ...v.sources, qual: v.sources?.qual || "", price: "Claude 추정" + (a.asOf ? " · " + a.asOf : ""), peer: "PER·PBR: DART+추정 주가 · 경쟁사: Claude 추정", risk: "Claude 추정" },
   };
 }
 const EOK = 1e8;
@@ -771,7 +1001,7 @@ document.getElementById("searchForm").addEventListener("submit", async e => {
   setStatus(`"${name}" DART 데이터 확인 중…`);
   const doc = await findDart(name);
   if (doc) {
-    render(dartToView(doc));
+    showDart(doc);
     enrichBtn.hidden = false;
     setStatus(`${doc.company?.name} DART 데이터 (${doc.fetchedAt?.slice(0, 10)} 수집). Claude 사용량 없이 표시했습니다.`);
     return;
@@ -815,7 +1045,7 @@ dartBtn.addEventListener("click", async () => {
     if (r.status !== "done") { setStatus("DART 수집 실패: " + (r.message || "원인 미상"), "err"); return; }
     const doc = await getCompany(r.corpCode);
     if (!doc) { setStatus("수집은 끝났지만 기업 데이터를 읽지 못했습니다. 다시 검색해 보세요.", "err"); return; }
-    render(dartToView(doc));
+    showDart(doc);
     estBtn.hidden = true; enrichBtn.hidden = false;
     setStatus(`${r.name} DART 데이터를 가져왔습니다.`);
   }, () => {});
@@ -824,6 +1054,7 @@ dartBtn.addEventListener("click", async () => {
 enrichBtn.addEventListener("click", async () => {
   if (!current?.dart) return;
   const base = dartToView(current.dart);
+  base.qual = current.qual;
   const a = await askClaude(buildLitePrompt(base), "주가·경쟁사·정성평가를 채우는 중입니다 (20초~1분).", "default");
   if (!a) return;
   render(mergeLite(base, a));

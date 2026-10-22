@@ -18,4 +18,4 @@
    - 이미 있는 문서(같은 기업을 다시 받은 경우)라서 거부되면 그 문서를 `get`해 `version`을 `if_version`으로 붙여 다시 보낸다.
 4. 사용자에게 처리한 기업과 실패한 요청을 한 줄씩 보고한다.
 
-저장소 구조: `companies/<corp_code>`(기업 데이터), `lookup/n_<정규화한 이름의 UTF-8 hex>`·`lookup/t_<종목코드>`(검색어 → corp_code), `results/<요청 id>`(처리 결과), `requests/<요청 id>`(대기열).
+저장소 구조: `companies/<corp_code>`(기업 데이터), `qual/<corp_code>`(정성평가 결과), `lookup/n_<정규화한 이름의 UTF-8 hex>`·`lookup/t_<종목코드>`(검색어 → corp_code), `results/<요청 id>`(처리 결과), `requests/<요청 id>`(대기열).
