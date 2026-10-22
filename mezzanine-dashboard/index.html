@@ -3,13 +3,13 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
-/* Layout: 상단 검색 → 종합판정(점수+우선순위) → P1/P2/P3 항목 카드 → 차트·표 상세. 대시보드는 위에서 아래로 "결론 → 근거" 순서 */
+/* Layout: 고정 상단바(검색·회사·탭) → 탭별 화면(개요=결론, 재무·메자닌·정성·비교·시뮬레이터=근거) → 오른쪽 Claude 질문 서랍 */
 :root {
   --bg: #f4f6f5;
   --panel: #ffffff;
   --panel-2: #eef2f0;
   --fg: #16201d;
-  --fg-muted: #5b6a65;
+  --fg-muted: #4a5853;
   --line: #d6dfdb;
   --accent: #1f6b5c;
   --accent-soft: #dcebe6;
@@ -20,31 +20,33 @@
   --warn-soft: #f7ecd9;
   --bad-soft: #f6e0e0;
   --series-2: #6c5fa8;
+  --series-3: #b4632a;
   --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
   --font-num: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #0f1513; --panel: #161e1b; --panel-2: #1c2622; --fg: #e4ece9; --fg-muted: #93a49e; --line: #2a3632;
+    --bg: #0f1513; --panel: #161e1b; --panel-2: #1c2622; --fg: #e4ece9; --fg-muted: #a7b6b0; --line: #2a3632;
     --accent: #5fbfa7; --accent-soft: #1d3530; --ok: #6cc58f; --warn: #e2ad57; --bad: #ec7c7c;
-    --ok-soft: #1b3326; --warn-soft: #3a2d17; --bad-soft: #3c1f1f; --series-2: #a99ae6; color-scheme: dark;
+    --ok-soft: #1b3326; --warn-soft: #3a2d17; --bad-soft: #3c1f1f; --series-2: #a99ae6; --series-3: #e39a62; color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #0f1513; --panel: #161e1b; --panel-2: #1c2622; --fg: #e4ece9; --fg-muted: #93a49e; --line: #2a3632;
+  --bg: #0f1513; --panel: #161e1b; --panel-2: #1c2622; --fg: #e4ece9; --fg-muted: #a7b6b0; --line: #2a3632;
   --accent: #5fbfa7; --accent-soft: #1d3530; --ok: #6cc58f; --warn: #e2ad57; --bad: #ec7c7c;
-  --ok-soft: #1b3326; --warn-soft: #3a2d17; --bad-soft: #3c1f1f; --series-2: #a99ae6; color-scheme: dark;
+  --ok-soft: #1b3326; --warn-soft: #3a2d17; --bad-soft: #3c1f1f; --series-2: #a99ae6; --series-3: #e39a62; color-scheme: dark;
 }
-body { background: var(--bg); color: var(--fg); font-family: var(--font-body); line-height: 1.55; }
-.wrap { max-width: 1240px; margin: 0 auto; padding-block: 24px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 20px; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.6; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 20px 110px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 24px; }
 h1, h2, h3 { text-wrap: balance; margin: 0; }
 h1 { font-size: 1.45rem; font-weight: 700; letter-spacing: -0.01em; }
-h2 { font-size: 1.05rem; font-weight: 600; }
-h3 { font-size: 0.95rem; font-weight: 600; }
+h2 { font-size: 1.15rem; font-weight: 700; }
+h3 { font-size: 1.02rem; font-weight: 650; }
 .eyebrow { font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-muted); font-weight: 600; }
 .muted { color: var(--fg-muted); }
 .num { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
-.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; min-width: 0; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 22px; min-width: 0; }
+@media (max-width: 560px) { .panel { padding: 16px; } }
 
 /* header + search */
 .top { display: flex; flex-wrap: wrap; gap: 16px; align-items: end; justify-content: space-between; }
@@ -55,10 +57,12 @@ h3 { font-size: 0.95rem; font-weight: 600; }
 button { font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); padding: 10px 14px; }
 button.primary { background: var(--accent); border-color: var(--accent); color: var(--bg); font-weight: 600; }
 button:disabled { opacity: 0.55; cursor: progress; }
-.status { font-size: 0.85rem; color: var(--fg-muted); min-height: 1.3em; }
+.status { font-size: 0.88rem; color: var(--fg-muted); }
+/* 상태 문구도 버튼도 없으면 줄 자체를 접는다 */
+.actions.top:not(:has(.status:not(:empty))):not(:has(button:not([hidden]))) { display: none; }
 .status.err { color: var(--bad); }
 
-.banner { display: flex; gap: 10px; align-items: flex-start; padding: 10px 14px; border-radius: 8px; background: var(--warn-soft); color: var(--fg); font-size: 0.85rem; border: 1px solid var(--line); }
+.banner { display: flex; gap: 10px; align-items: flex-start; padding: 10px 14px; border-radius: 8px; background: var(--panel); color: var(--fg-muted); font-size: 0.84rem; border: 1px solid var(--line); border-left: 4px solid var(--warn); }
 .banner b { color: var(--warn); }
 
 /* verdict */
@@ -74,14 +78,15 @@ button:disabled { opacity: 0.55; cursor: progress; }
 .pill.na { background: var(--panel-2); color: var(--fg-muted); }
 .co-meta { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.85rem; color: var(--fg-muted); }
 .summary { margin: 8px 0 0; max-width: 75ch; }
-.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 14px; }
-.kpi { background: var(--panel-2); border-radius: 8px; padding: 10px 12px; display: grid; gap: 2px; }
-.kpi .v { font-family: var(--font-num); font-size: 1.15rem; font-weight: 600; }
-.kpi .l { font-size: 0.75rem; color: var(--fg-muted); }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(122px, 1fr)); gap: 10px; margin-top: 16px; }
+.kpi .s { font-size: 0.78rem; color: var(--fg-muted); }
+.kpi { background: var(--panel-2); border-radius: 10px; padding: 12px 14px; display: grid; gap: 3px; align-content: start; }
+.kpi .v { font-family: var(--font-num); font-size: 1.25rem; font-weight: 600; }
+.kpi .l { font-size: 0.8rem; color: var(--fg-muted); }
 
 /* criteria */
 .tier { display: grid; gap: 10px; }
-.tier-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.tier-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
 .tier-tag { font-family: var(--font-num); font-weight: 600; font-size: 0.8rem; padding: 2px 8px; border-radius: 6px; background: var(--accent-soft); color: var(--accent); }
 .crit-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
 .crit { display: grid; gap: 8px; align-content: start; border-left: 4px solid var(--line); }
@@ -93,26 +98,29 @@ button:disabled { opacity: 0.55; cursor: progress; }
 .dots { display: flex; gap: 4px; }
 .dots i { width: 18px; height: 6px; border-radius: 3px; background: var(--line); display: block; }
 .dots i.on { background: currentColor; }
-.crit p { margin: 0; font-size: 0.88rem; }
+.crit p { margin: 0; font-size: 0.92rem; }
 .crit ul { margin: 0; padding-left: 18px; font-size: 0.82rem; color: var(--fg-muted); }
 .crit ul li + li { margin-top: 2px; }
 
 /* detail grid */
 .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 @media (max-width: 860px) { .grid-2 { grid-template-columns: minmax(0, 1fr); } }
-.panel-head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; flex-wrap: wrap; margin-bottom: 10px; }
+.panel-head { display: flex; justify-content: space-between; gap: 6px 16px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 16px; }
+.panel-head > div:first-child, .panel-head > h3:first-child { min-width: 0; }
+.note { display: block; font-size: 0.85rem; color: var(--fg-muted); font-weight: 400; margin-top: 3px; }
 .chart { position: relative; width: 100%; }
 .chart svg { display: block; width: 100%; height: auto; }
-.chart text { fill: var(--fg-muted); font-family: var(--font-num); font-size: 11px; }
+.chart text { fill: var(--fg-muted); font-family: var(--font-num); font-size: 12px; }
 .tip { position: absolute; pointer-events: none; background: var(--fg); color: var(--bg); font-size: 0.78rem; padding: 6px 8px; border-radius: 6px; white-space: nowrap; transform: translate(-50%, -110%); font-family: var(--font-num); }
-.legend { display: flex; gap: 14px; font-size: 0.78rem; color: var(--fg-muted); flex-wrap: wrap; }
+.legend { display: flex; gap: 16px; font-size: 0.84rem; color: var(--fg-muted); flex-wrap: wrap; }
 .legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; background: var(--c); }
 
 .table-scroll { overflow-x: auto; }
-table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
-th, td { padding: 7px 10px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+th, td { padding: 10px 12px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+tbody tr:hover td { background: var(--panel-2); }
 th:first-child, td:first-child { text-align: left; }
-th { font-weight: 600; color: var(--fg-muted); font-size: 0.78rem; }
+th { font-weight: 600; color: var(--fg-muted); font-size: 0.8rem; background: var(--panel); position: sticky; top: 0; }
 td { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
 td:first-child { font-family: var(--font-body); }
 tr.self td { background: var(--accent-soft); font-weight: 600; }
@@ -140,7 +148,7 @@ details.method table th { text-align: left; }
 .qual.s-risk { border-left-color: var(--bad); }
 .qual.s-watch { border-left-color: var(--warn); }
 .qual.s-ok { border-left-color: var(--ok); }
-.qual p { margin: 0; font-size: 0.88rem; }
+.qual p { margin: 0; font-size: 0.92rem; }
 .qual ul { margin: 0; padding-left: 18px; font-size: 0.8rem; color: var(--fg-muted); }
 .qual .ev { display: flex; flex-wrap: wrap; gap: 6px; font-size: 0.75rem; }
 .qual .ev a, .disc a { color: var(--accent); text-decoration: none; }
@@ -151,29 +159,124 @@ details.method table th { text-align: left; }
 .chip .n { font-family: var(--font-num); margin-left: 4px; opacity: 0.8; }
 .extra { margin: 12px 0 0; padding-left: 18px; font-size: 0.88rem; }
 .extra li + li { margin-top: 4px; }
+/* app bar + tabs */
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--panel); }
+.appbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--panel); border-bottom: 1px solid var(--line); }
+.appbar-inner { max-width: 1240px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.appbar-row { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; padding-block: 10px; }
+.brand { display: grid; gap: 0; min-width: 0; }
+.brand h1 { font-size: 1.05rem; }
+.brand .eyebrow { font-size: 0.66rem; }
+.hdr-co { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 0.85rem; min-width: 0; }
+.hdr-co b { font-weight: 600; }
+.hdr-score { font-family: var(--font-num); font-weight: 600; }
+.search input { width: min(260px, 100%); }
+.tabs { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; margin-bottom: -1px; }
+.tabs::-webkit-scrollbar { display: none; }
+.tab { background: none; border: none; border-bottom: 3px solid transparent; border-radius: 0; padding: 11px 14px; font-size: 0.95rem; color: var(--fg-muted); white-space: nowrap; display: inline-flex; gap: 6px; align-items: center; }
+.tab:hover { color: var(--fg); }
+.tab[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--accent); font-weight: 600; }
+.badge { font-family: var(--font-num); font-size: 0.7rem; min-width: 18px; padding: 1px 6px; border-radius: 999px; background: var(--bad-soft); color: var(--bad); font-weight: 600; }
+.badge:empty { display: none; }
+.tabpanel { display: grid; gap: 16px; }
+.section-note { margin: -4px 0 0; color: var(--fg-muted); font-size: 0.85rem; max-width: 80ch; }
+.btn-sm { padding: 6px 10px; font-size: 0.8rem; }
+.btn-ask { display: inline-flex; gap: 6px; align-items: center; color: var(--accent); border-color: var(--accent); background: transparent; }
+.btn-ask::before { content: "?"; display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; background: var(--accent); color: var(--bg); font-size: 0.7rem; font-weight: 700; }
+
+/* 핵심 신호 · 이상 신호 */
+.signal-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.signal { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 14px 16px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--line); }
+.signal.sev-bad { border-left-color: var(--bad); }
+.signal.sev-warn { border-left-color: var(--warn); }
+.signal .t { font-weight: 650; font-size: 0.97rem; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.signal .d { font-size: 0.9rem; color: var(--fg-muted); margin-top: 4px; font-family: var(--font-num); }
+.signal details { margin-top: 8px; font-size: 0.86rem; }
+.signal summary { cursor: pointer; color: var(--accent); font-size: 0.84rem; }
+.signal .why { margin: 6px 0 0; padding-left: 18px; color: var(--fg); }
+.signal .rel { display: grid; gap: 4px; margin-top: 8px; font-size: 0.84rem; }
+.signal .rel a { color: var(--accent); text-decoration: none; }
+@media (max-width: 560px) { .signal { grid-template-columns: minmax(0, 1fr); } .signal .btn-ask { justify-self: start; } }
+td.anom { background: var(--bad-soft); color: var(--bad); font-weight: 600; cursor: help; }
+td.anom.mid { background: var(--warn-soft); color: var(--warn); }
+
+/* 지표 카드 + 스파크라인 */
+.ratio-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.rcard { background: var(--panel-2); border-radius: 10px; padding: 14px; display: grid; gap: 6px; align-content: start; min-width: 0; }
+.rcard .top { display: flex; justify-content: space-between; gap: 6px; align-items: center; }
+.rcard .name { font-size: 0.9rem; font-weight: 600; }
+.rcard .val { font-family: var(--font-num); font-size: 1.5rem; font-weight: 600; }
+.rcard .sub { font-size: 0.8rem; color: var(--fg-muted); }
+.rcard svg { display: block; width: 100%; height: 40px; }
+.chart-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 860px) { .chart-grid { grid-template-columns: minmax(0, 1fr); } }
+
+/* Claude 질문 서랍 */
+.ask-fab { position: fixed; right: calc(16px + env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 35; box-shadow: 0 6px 20px rgb(0 0 0 / 0.18); border-radius: 999px; padding: 12px 18px; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(440px, 100vw); z-index: 40; background: var(--panel); border-left: 1px solid var(--line); box-shadow: -10px 0 30px rgb(0 0 0 / 0.15);
+  display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); padding-right: env(safe-area-inset-right, 0px); }
+.drawer-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.drawer-ctx { padding: 10px 16px; font-size: 0.78rem; color: var(--fg-muted); border-bottom: 1px solid var(--line); display: grid; gap: 6px; }
+.msgs { overflow-y: auto; padding: 14px 16px; display: grid; gap: 10px; align-content: start; }
+.msg { padding: 12px 14px; border-radius: 12px; font-size: 0.93rem; line-height: 1.65; white-space: pre-wrap; word-break: break-word; max-width: 92%; }
+.msg.user { background: var(--accent-soft); justify-self: end; }
+.msg.ai { background: var(--panel-2); justify-self: start; }
+.msg.ai.pending { color: var(--fg-muted); }
+.ask-form { display: grid; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line); }
+.ask-form textarea { font: inherit; font-size: 0.9rem; padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); resize: vertical; min-height: 64px; width: 100%; box-sizing: border-box; }
+.ask-form .row { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
+/* 재무제표 상세 */
+.stmt > summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.stmt > summary::-webkit-details-marker { display: none; }
+.stmt > summary .chev { font-size: 0.85rem; color: var(--accent); border: 1px solid var(--accent); border-radius: 8px; padding: 6px 12px; white-space: nowrap; }
+.stmt[open] > summary .chev::after { content: " 접기"; }
+.stmt:not([open]) > summary .chev::after { content: " 펼치기"; }
+.stmt-bar { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin: 18px 0 12px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; padding: 8px 14px; background: var(--panel); color: var(--fg-muted); }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-selected="true"] { background: var(--accent); color: var(--bg); font-weight: 600; }
+.stmt-bar input[type="search"] { font: inherit; font-size: 0.9rem; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); width: min(240px, 100%); }
+.stmt-bar label { display: inline-flex; gap: 6px; align-items: center; font-size: 0.88rem; color: var(--fg-muted); }
+.stmt-scroll { max-height: 600px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; }
+.stmt-table th, .stmt-table td { padding: 8px 12px; }
+.stmt-table td:first-child, .stmt-table th:first-child { position: sticky; left: 0; background: var(--panel); z-index: 1; white-space: normal; min-width: 170px; max-width: 280px; }
+.stmt-table th { z-index: 2; }
+.stmt-table th:first-child { z-index: 3; }
+.stmt-table tr.h td { font-weight: 650; background: var(--panel-2); }
+.stmt-table tr.c td:first-child { padding-left: 26px; }
+.stmt-table td.ask { width: 1%; }
+.ask-mini { padding: 3px 8px; font-size: 0.75rem; border-radius: 6px; color: var(--accent); border-color: var(--line); background: transparent; }
+.stmt-table tr:not(:hover) .ask-mini { opacity: 0.35; }
 .loading-skel { animation: pulse 1.4s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: 0.45; } }
 @media (prefers-reduced-motion: reduce) { .loading-skel { animation: none; } }
 </style>
 
-<div class="wrap">
-  <header class="top">
-    <div>
-      <div class="eyebrow">Mezzanine Pre-Investment Screen · CB · BW · EB</div>
-      <h1>메자닌 투자 기업분석</h1>
-      <p>기업명을 입력하면 메자닌 투자자가 우선적으로 확인하는 항목(상환능력, 전환가치, 오버행 등) 순서로 점수와 근거를 정리합니다.</p>
+<header class="appbar">
+  <div class="appbar-inner">
+    <div class="appbar-row">
+      <div class="brand">
+        <div class="eyebrow">Mezzanine Pre-Investment Screen · CB · BW · EB</div>
+        <h1>메자닌 투자 기업분석</h1>
+      </div>
+      <div class="hdr-co" id="hdrCo"></div>
+      <form class="search" id="searchForm">
+        <input id="companyInput" type="text" placeholder="기업명 또는 종목코드" autocomplete="off" aria-label="기업명">
+        <button class="primary" id="analyzeBtn" type="submit">분석</button>
+        <button id="stopBtn" type="button" hidden>중지</button>
+      </form>
     </div>
-    <form class="search" id="searchForm">
-      <input id="companyInput" type="text" placeholder="기업명 또는 종목코드 (예: 에코프로비엠)" autocomplete="off" aria-label="기업명">
-      <button class="primary" id="analyzeBtn" type="submit">분석</button>
-      <button id="stopBtn" type="button" hidden>중지</button>
-    </form>
-  </header>
-  <div class="actions">
+    <nav class="tabs" id="tabs" role="tablist" aria-label="분석 화면"></nav>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="actions top">
     <div class="status" id="status" role="status"></div>
     <button id="dartBtn" type="button" class="primary" hidden>DART 수집 요청</button>
     <button id="estBtn" type="button" hidden>Claude 추정으로 바로 보기</button>
-    <button id="enrichBtn" type="button" hidden>Claude로 주가·경쟁사·정성평가 채우기</button>
+    <button id="enrichBtn" type="button" hidden>Claude로 나머지 점수 채우기</button>
   </div>
 
   <div class="banner" id="banner">
@@ -181,108 +284,187 @@ details.method table th { text-align: left; }
     <span id="bannerText">아래는 화면 구성을 보여주는 <strong>가상 예시 기업</strong> 데이터입니다. 기업명을 입력해 분석하세요.</span>
   </div>
 
-  <!-- 종합 판정 -->
-  <section class="panel verdict" id="verdict">
-    <div class="gauge">
-      <div class="eyebrow">가중 종합점수</div>
-      <div class="score-big" id="totalScore">—<small> / 100</small></div>
-      <span class="pill na" id="verdictPill">—</span>
-      <div class="muted" style="font-size:0.8rem">P1 항목 중 하나라도 1점이면 점수와 무관하게 "투자 보류"로 판정합니다.</div>
-    </div>
-    <div style="min-width:0">
-      <h2 id="coName">—</h2>
-      <div class="co-meta" id="coMeta"></div>
-      <p class="summary" id="coSummary"></p>
-      <div class="kpis" id="kpis"></div>
-    </div>
-  </section>
-
-  <!-- 우선순위별 항목 -->
-  <section class="tier" id="tiers"></section>
-
-  <section class="panel" id="listingPanel">
-    <div class="panel-head"><h3>상장유지 요건 간이 점검 <span class="src" id="src-listing"></span></h3><span class="muted" style="font-size:0.78rem">코스닥 관리종목 요건 기준 · 기술특례 유예 여부는 정성평가에서 확인</span></div>
-    <div class="kpis" id="listingFlags"></div>
-    <div class="table-scroll" style="margin-top:12px"><table id="listingTable"></table></div>
-  </section>
-
-  <section class="panel" id="qualPanel">
-    <div class="panel-head">
-      <h3>정성평가 · 특이사항 <span class="src" id="src-qual"></span></h3>
-      <div class="actions"><span class="muted" id="qualMeta" style="font-size:0.78rem"></span><button id="qualBtn" type="button" hidden>Claude 정성평가 실행</button></div>
-    </div>
-    <p class="muted" id="qualSummary" style="margin:0 0 12px;max-width:75ch"></p>
-    <div class="qual-grid" id="qualGrid"></div>
-    <ul class="extra" id="qualExtra"></ul>
-    <div style="margin-top:18px">
-      <h3>최근 2년 공시 <span class="src" id="src-disc"></span></h3>
-      <div class="chips" id="discChips"></div>
-      <div class="table-scroll" style="max-height:320px;overflow:auto;margin-top:8px"><table id="discTable" class="disc"></table></div>
-    </div>
-  </section>
-
-  <!-- 상세 -->
-  <div class="grid-2">
-    <section class="panel" id="pricePanel">
-      <div class="panel-head"><h3>주가 추이 (월말 종가, 최근 24개월) <span class="src" id="src-price"></span></h3><span class="muted num" id="priceNote" style="font-size:0.78rem"></span></div>
-      <div class="chart" id="priceChart"></div>
-    </section>
-    <section class="panel" id="finPanel">
-      <div class="panel-head"><h3>매출·영업이익 추이 <span class="src" id="src-finchart"></span></h3>
-        <div class="legend"><span style="--c: var(--accent)">매출액</span><span style="--c: var(--series-2)">영업이익</span></div>
+  <!-- 개요 -->
+  <div class="tabpanel" id="tab-overview" role="tabpanel">
+    <section class="panel verdict" id="verdict">
+      <div class="gauge">
+        <div class="eyebrow">가중 종합점수</div>
+        <div class="score-big" id="totalScore">—<small> / 100</small></div>
+        <span class="pill na" id="verdictPill">—</span>
+        <div class="muted" style="font-size:0.8rem">P1 항목 중 하나라도 1점이면 점수와 무관하게 "투자 보류"로 판정합니다.</div>
       </div>
-      <div class="chart" id="finChart"></div>
+      <div style="min-width:0">
+        <h2 id="coName">—</h2>
+        <div class="co-meta" id="coMeta"></div>
+        <p class="summary" id="coSummary"></p>
+        <div class="kpis" id="kpis"></div>
+      </div>
     </section>
+
+    <section class="panel">
+      <div class="panel-head"><div><h3>먼저 볼 신호</h3><span class="note">재무 이상 · 상장유지 요건 · 정성평가 위험을 모았습니다</span></div></div>
+      <ul class="signal-list" id="signalList"></ul>
+    </section>
+
+    <section class="tier" id="tiers"></section>
   </div>
 
-  <div class="grid-2">
+  <!-- 재무 -->
+  <div class="tabpanel" id="tab-finance" role="tabpanel" hidden>
     <section class="panel">
-      <div class="panel-head"><h3>재무제표 요약 <span class="src" id="src-fin"></span></h3><span class="muted" style="font-size:0.78rem" id="finUnit"></span></div>
+      <div class="panel-head"><div><h3>핵심 지표 추이 <span class="src" id="src-ratio"></span></h3><span class="note">큰 숫자는 최근 값, 선은 연도별 추이</span></div></div>
+      <div class="ratio-grid" id="ratioCards"></div>
+    </section>
+
+
+    <div class="chart-grid">
+      <section class="panel" id="finPanel">
+        <div class="panel-head"><div><h3>매출·영업이익 <span class="src" id="src-finchart"></span></h3><span class="note" id="finUnit"></span></div></div>
+        <div class="chart" id="finChart"></div>
+      </section>
+      <section class="panel">
+        <div class="panel-head"><div><h3>이익과 현금흐름</h3><span class="note">영업이익·순이익·영업현금흐름이 따로 움직이면 원인 확인</span></div></div>
+        <div class="chart" id="flowChart"></div>
+      </section>
+      <section class="panel">
+        <div class="panel-head"><div><h3>현금 vs 단기차입금</h3><span class="note">풋 행사 때 갚을 돈이 있는지</span></div></div>
+        <div class="chart" id="cashChart"></div>
+      </section>
+      <section class="panel">
+        <div class="panel-head"><div><h3>부채비율</h3><span class="note">150% 양호 · 250% 위험 기준선</span></div></div>
+        <div class="chart" id="debtChart"></div>
+      </section>
+    </div>
+
+    <section class="panel" id="listingPanel">
+      <div class="panel-head"><div><h3>상장유지 요건 간이 점검 <span class="src" id="src-listing"></span></h3><span class="note">코스닥 관리종목 요건 기준 · 기술특례 유예 여부는 정성평가에서 확인</span></div></div>
+      <div class="kpis" id="listingFlags"></div>
+      <div class="chart" id="lossChart" style="margin-top:14px"></div>
+      <div class="table-scroll" style="margin-top:12px"><table id="listingTable"></table></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><div><h3>재무제표 요약 <span class="src" id="src-fin"></span></h3><span class="note">색칠된 칸은 이상 신호 · 마우스를 올리면 이유</span></div></div>
       <div class="table-scroll"><table id="finTable"></table></div>
     </section>
+
+    <section class="panel" id="stmtPanel">
+      <details class="stmt" id="stmtDetails">
+        <summary>
+          <div><h3>재무제표 상세 <span class="src" id="src-stmt"></span></h3><span class="note">재무상태표·손익계산서·현금흐름표의 모든 계정을 연도별로 봅니다. 계정 검색, 주요 계정만 보기, 계정별로 Claude에게 묻기를 할 수 있습니다.</span></div>
+          <span class="chev"></span>
+        </summary>
+        <div class="stmt-bar">
+          <div class="seg" role="tablist" id="stmtSeg" aria-label="재무제표 종류"></div>
+          <input type="search" id="stmtSearch" placeholder="계정 검색 (예: 전환사채)" aria-label="계정 검색">
+          <label for="stmtMain"><input type="checkbox" id="stmtMain"> 주요 계정만</label>
+        </div>
+        <div class="stmt-scroll"><table id="stmtTable" class="stmt-table"></table></div>
+        <p class="note" id="stmtNote" style="margin-top:10px"></p>
+      </details>
+    </section>
+
     <section class="panel">
-      <div class="panel-head"><h3>상환능력·건전성 지표 <span class="src" id="src-ratio"></span></h3><span class="muted" style="font-size:0.78rem">최근 연도 기준, 자동 계산</span></div>
-      <div class="table-scroll"><table id="ratioTable"></table></div>
+      <div class="panel-head"><div><h3>재무 이상 신호 <span class="src" id="src-anom"></span></h3><span class="note">전년 대비 급변·부호 전환·이익과 현금흐름 괴리를 자동으로 찾았습니다</span></div></div>
+      <ul class="signal-list" id="anomalyList"></ul>
     </section>
   </div>
 
-  <section class="panel">
-    <div class="panel-head"><h3>경쟁사 비교 · 밸류에이션 <span class="src" id="src-peer"></span></h3><span class="muted" style="font-size:0.78rem">음영 행이 분석 대상, 마지막 행은 경쟁사 중앙값</span></div>
-    <div class="table-scroll"><table id="peerTable"></table></div>
-  </section>
-
-  <div class="grid-2">
+  <!-- 메자닌·주가 -->
+  <div class="tabpanel" id="tab-mezz" role="tabpanel" hidden>
     <section class="panel">
-      <div class="panel-head"><h3>기발행 메자닌 · 오버행 <span class="src" id="src-mezz"></span></h3><span class="muted" style="font-size:0.78rem" id="overhangNote"></span></div>
+      <div class="panel-head"><div><h3>신용등급 <span class="src" id="src-credit"></span></h3><span class="note">한국신용평가 공개 등급. 등급이 없으면 비워 둡니다 (무등급 기업은 메자닌 상환 위험을 재무로만 판단)</span></div></div>
+      <div class="table-scroll"><table id="creditTable"></table></div>
+    </section>
+    <section class="panel" id="pricePanel">
+      <div class="panel-head"><div><h3>주가 추이 (월말 종가, 최근 24개월) <span class="src" id="src-price"></span></h3><span class="note num" id="priceNote"></span></div></div>
+      <div class="chart" id="priceChart"></div>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><div><h3>기발행 메자닌 · 오버행 <span class="src" id="src-mezz"></span></h3><span class="note" id="overhangNote"></span></div></div>
       <div class="table-scroll"><table id="mezzTable"></table></div>
     </section>
     <section class="panel">
-      <div class="panel-head"><h3>주요 리스크 · 확인할 공시 <span class="src" id="src-risk"></span></h3></div>
+      <div class="panel-head"><h3>주요 리스크 <span class="src" id="src-risk"></span></h3></div>
       <ul class="risk-list" id="riskList"></ul>
     </section>
   </div>
 
-  <section class="panel">
-    <div class="panel-head"><h3>발행조건 시뮬레이터</h3><span class="muted" style="font-size:0.78rem">제안받은 조건을 넣으면 전환가치와 풋 수익률을 계산합니다</span></div>
-    <div class="calc">
-      <label for="tPrice">현재 주가 (원)<input id="tPrice" type="number" inputmode="decimal"></label>
-      <label for="tConv">전환가액 (원)<input id="tConv" type="number" inputmode="decimal"></label>
-      <label for="tFloor">리픽싱 하한 (%)<input id="tFloor" type="number" value="70"></label>
-      <label for="tCoupon">표면이자율 (%)<input id="tCoupon" type="number" step="0.1" value="0"></label>
-      <label for="tYtm">만기보장수익률 (%)<input id="tYtm" type="number" step="0.1" value="3"></label>
-      <label for="tPut">조기상환청구 시점 (년)<input id="tPut" type="number" step="0.5" value="2"></label>
-    </div>
-    <div class="calc-out" id="calcOut"></div>
-  </section>
+  <!-- 정성평가 -->
+  <div class="tabpanel" id="tab-qual" role="tabpanel" hidden>
+    <section class="panel" id="qualPanel">
+      <div class="panel-head">
+        <h3>정성평가 · 특이사항 <span class="src" id="src-qual"></span></h3>
+        <div class="actions"><span class="muted" id="qualMeta" style="font-size:0.78rem"></span><button id="qualBtn" type="button" hidden>Claude 정성평가 실행</button></div>
+      </div>
+      <p class="muted" id="qualSummary" style="margin:0 0 12px;max-width:75ch"></p>
+      <div class="qual-grid" id="qualGrid"></div>
+      <ul class="extra" id="qualExtra"></ul>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><div><h3>최근 2년 공시 <span class="src" id="src-disc"></span></h3><span class="note">키워드를 누르면 해당 공시만 보입니다</span></div></div>
+      <div class="chips" id="discChips"></div>
+      <div class="table-scroll" style="max-height:420px;overflow:auto;margin-top:8px"><table id="discTable" class="disc"></table></div>
+    </section>
+  </div>
 
-  <section class="panel">
-    <details class="method" id="method">
-      <summary>평가 기준과 우선순위 (메자닌 투자자 체크리스트)</summary>
-      <div class="table-scroll" style="margin-top:10px"><table id="methodTable"></table></div>
-      <p class="muted" style="margin:10px 0 0">데이터는 Claude가 학습한 공개 정보를 바탕으로 작성한 추정치입니다. 실시간 시세나 DART 공시를 직접 조회하지 않으므로, 투자 판단 전에 최신 사업보고서·분기보고서, 전환사채 발행결정 공시, 최대주주 주식담보 공시로 반드시 확인하세요.</p>
-    </details>
-  </section>
+  <!-- 비교 -->
+  <div class="tabpanel" id="tab-compare" role="tabpanel" hidden>
+    <section class="panel">
+      <div class="panel-head"><div><h3>PBR 비교</h3><span class="note">점선은 경쟁사 중앙값</span></div></div>
+      <div class="chart" id="peerChart"></div>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><div><h3>경쟁사 비교 · 밸류에이션 <span class="src" id="src-peer"></span></h3><span class="note">음영 행이 분석 대상, 마지막 행은 경쟁사 중앙값</span></div></div>
+      <div class="table-scroll"><table id="peerTable"></table></div>
+    </section>
+  </div>
+
+  <!-- 시뮬레이터 -->
+  <div class="tabpanel" id="tab-sim" role="tabpanel" hidden>
+    <section class="panel">
+      <div class="panel-head"><div><h3>발행조건 시뮬레이터</h3><span class="note">제안받은 조건을 넣으면 전환가치와 풋 수익률을 계산합니다</span></div></div>
+      <div class="calc">
+        <label for="tPrice">현재 주가 (원)<input id="tPrice" type="number" inputmode="decimal"></label>
+        <label for="tConv">전환가액 (원)<input id="tConv" type="number" inputmode="decimal"></label>
+        <label for="tFloor">리픽싱 하한 (%)<input id="tFloor" type="number" value="70"></label>
+        <label for="tCoupon">표면이자율 (%)<input id="tCoupon" type="number" step="0.1" value="0"></label>
+        <label for="tYtm">만기보장수익률 (%)<input id="tYtm" type="number" step="0.1" value="3"></label>
+        <label for="tPut">조기상환청구 시점 (년)<input id="tPut" type="number" step="0.5" value="2"></label>
+      </div>
+      <div class="calc-out" id="calcOut"></div>
+    </section>
+    <section class="panel">
+      <details class="method" id="method" open>
+        <summary>평가 기준과 우선순위 (메자닌 투자자 체크리스트)</summary>
+        <div class="table-scroll" style="margin-top:10px"><table id="methodTable"></table></div>
+        <p class="muted" style="margin:10px 0 0">재무제표·메자닌 발행이력·최대주주 지분은 DART, 주가·경쟁사 지표는 네이버 증권(수집 시점)에서 가져옵니다. 정성평가와 Claude 답변은 추정이 섞일 수 있으니 투자 판단 전 원문 공시로 확인하세요.</p>
+      </details>
+    </section>
+  </div>
 </div>
+
+<button class="primary ask-fab" id="askFab" type="button">Claude에게 질문</button>
+<aside class="drawer" id="askDrawer" hidden aria-label="Claude에게 질문">
+  <div class="drawer-head">
+    <h2>Claude에게 질문</h2>
+    <button type="button" class="btn-sm" id="askClose">닫기</button>
+  </div>
+  <div class="drawer-ctx">
+    <span id="askCtx">지금 보고 있는 기업의 재무·메자닌·공시 데이터를 근거로 답합니다.</span>
+    <div class="chips" id="askSuggest" style="margin:0"></div>
+  </div>
+  <div class="msgs" id="askMsgs" aria-live="polite"></div>
+  <form class="ask-form" id="askForm">
+    <label for="askInput" class="muted" style="font-size:0.78rem">질문</label>
+    <textarea id="askInput" placeholder="예: 2025년 순이익이 영업이익보다 훨씬 나쁜 이유가 뭐야?"></textarea>
+    <div class="row">
+      <button type="button" class="btn-sm" id="askReset">대화 지우기</button>
+      <button type="button" class="btn-sm" id="askStop" hidden>중지</button>
+      <button type="submit" class="primary btn-sm" id="askSend">보내기</button>
+    </div>
+  </form>
+</aside>
 
 <script>
 // ── 평가 기준: 메자닌 투자자가 보는 항목과 가중치 ─────────────────────────
@@ -325,7 +507,8 @@ const EXAMPLE = {
     series: [9800,10400,11200,10100,9400,8800,9100,9900,11800,12600,12100,10900,10200,9600,8900,8300,7600,7100,7400,8100,8700,8200,7900,8420].map((p, i) => ({ m: ym(2024, 11 + i), p })) },
   financials: { unit: "억원", years: ["2021","2022","2023","2024","2025"],
     revenue: [812, 1046, 1210, 1102, 1288], operatingIncome: [42, 88, 104, 31, 66], netIncome: [21, 61, 72, -18, 34],
-    ocf: [35, 70, 92, 12, 58], pretaxIncome: [28, 76, 91, -22, 41], equityHist: [610, 680, 760, 742, 830], totalAssets: 2140, totalLiabilities: 1310, equity: 830, cash: 186, shortDebt: 342, totalDebt: 620, interestExpense: 29 },
+    ocf: [35, 70, 92, 12, 58], pretaxIncome: [28, 76, 91, -22, 41], equityHist: [610, 680, 760, 742, 830],
+    totalAssetsHist: [1310, 1500, 1770, 1922, 2140], liabilitiesHist: [700, 820, 1010, 1180, 1310], cashHist: [140, 190, 260, 120, 186], shortDebtHist: [180, 210, 260, 330, 342], totalAssets: 2140, totalLiabilities: 1310, equity: 830, cash: 186, shortDebt: 342, totalDebt: 620, interestExpense: 29 },
   valuation: { per: 77.9, pbr: 3.19, evEbitda: 24.1, psr: 2.06 },
   peers: [
     { name: "비교사 A (가상)", marketCap: 5400, per: 21.4, pbr: 2.1, evEbitda: 11.8, opMargin: 9.2, revenueGrowth: 14.0 },
@@ -382,20 +565,6 @@ function verdictOf(total, p1Fail) {
   if (total >= 50) return { cls: "warn", text: "조건부 검토 · 담보/조건 보완" };
   return { cls: "bad", text: "투자 부적합" };
 }
-function ratios(f) {
-  const opi = last(f.operatingIncome), rev = last(f.revenue), ocf = last(f.ocf);
-  return [
-    ["부채비율", isNum(f.totalLiabilities) && f.equity > 0 ? f.totalLiabilities / f.equity * 100 : null, "%", v => v <= 150 ? "ok" : v <= 250 ? "warn" : "bad", "150% 이하 양호"],
-    ["현금 / 단기차입금", isNum(f.cash) && f.shortDebt > 0 ? f.cash / f.shortDebt * 100 : null, "%", v => v >= 100 ? "ok" : v >= 50 ? "warn" : "bad", "100% 이상이면 단기 상환 가능"],
-    ["순차입금", isNum(f.totalDebt) && isNum(f.cash) ? f.totalDebt - f.cash : null, f.unit, v => v <= 0 ? "ok" : "warn", "음수면 순현금"],
-    ["이자보상배율", isNum(opi) && f.interestExpense > 0 ? opi / f.interestExpense : null, "x", v => v >= 3 ? "ok" : v >= 1 ? "warn" : "bad", "1 미만이면 이자도 못 냄"],
-    ["영업이익률", isNum(opi) && rev > 0 ? opi / rev * 100 : null, "%", v => v >= 8 ? "ok" : v >= 0 ? "warn" : "bad", ""],
-    ["영업현금흐름", ocf, f.unit, v => v > 0 ? "ok" : "bad", "적자면 상환재원 외부조달 의존"],
-    ["현금 소진 기간", isNum(ocf) && ocf < 0 && isNum(f.cash) ? f.cash / -ocf * 12 : null, "개월", v => v >= 24 ? "ok" : v >= 12 ? "warn" : "bad", "현금 ÷ 연간 영업현금 유출. 풋 시점보다 짧으면 추가 조달 필요"],
-    ["자본잠식 여부", isNum(f.equity) ? (f.equity <= 0 ? "완전잠식" : "없음") : null, "", v => v === "없음" ? "ok" : "bad", "자본총계 기준 간이 판단"],
-  ];
-}
-
 // ── 렌더 ─────────────────────────────────────────────────────────────────
 let current = EXAMPLE;
 function render(d) {
@@ -405,7 +574,7 @@ function render(d) {
   document.getElementById("bannerText").innerHTML = d.isExample
     ? "아래는 화면 구성을 보여주는 <strong>가상 예시 기업</strong> 데이터입니다. 기업명을 입력해 분석하세요."
     : d.dart
-    ? "재무제표·메자닌 발행이력·최대주주 지분은 <strong>DART 공시</strong>(" + escapeHtml(f.balanceAsOf || "") + ")입니다. 주가·경쟁사·정성평가는 Claude <strong>추정치</strong>이니 원문으로 확인하세요."
+    ? "재무·메자닌·최대주주는 <strong>DART 공시</strong>(" + escapeHtml(f.balanceAsOf || "") + "), 주가·경쟁사는 <strong>네이버 증권</strong>(" + escapeHtml(p.asOf || "수집 시점") + ") 기준입니다. 정성평가와 Claude 답변은 추정이 섞일 수 있으니 원문으로 확인하세요."
     : "DART에 저장된 데이터가 없어 Claude가 학습한 공개 정보로 만든 <strong>추정치</strong>입니다(기준시점: " + escapeHtml(d.company?.asOf || "미상") + "). 투자 판단 전 원문 공시로 확인하세요.";
   setSources(d.sources);
   renderListing(d);
@@ -430,7 +599,8 @@ function render(d) {
     [m.issued ? "4년 메자닌 발행액 / 시총" : "메자닌 잔액 / 시총", pct(m.overhangPct)],
     ["최대주주 지분 (담보)", isNum(m.majorShareholderPct) ? pct(m.majorShareholderPct) + (isNum(m.pledgedPct) ? " (" + pct(m.pledgedPct, 0) + ")" : "") : "—"],
     ["일평균 거래대금", isNum(p.avgDailyValue) ? fmt(p.avgDailyValue) + "억원" : "—"],
-  ].forEach(([l, val]) => kpis.append(el("div", { class: "kpi" }, el("span", { class: "l" }, l), el("span", { class: "v" }, val))));
+    ["신용등급 (한신평)", creditMain(d.dart?.credit)?.grade || "—", (() => { const r = creditMain(d.dart?.credit); return r ? [r.type, r.outlook].filter(Boolean).join(" · ") : "공개 등급 없음"; })()],
+  ].forEach(([l, val, sub]) => kpis.append(el("div", { class: "kpi" }, el("span", { class: "l" }, l), el("span", { class: "v" }, val), sub ? el("span", { class: "s" }, sub) : null)));
 
   // tiers
   const tiers = document.getElementById("tiers"); tiers.replaceChildren();
@@ -457,13 +627,19 @@ function render(d) {
   document.getElementById("tPrice").value = isNum(p.current) ? p.current : "";
   document.getElementById("tConv").value = isNum(p.current) ? Math.round(p.current * 1.05) : "";
 
-  // charts + tables
-  drawPrice(p);
-  drawFin(f);
-  renderFinTable(f);
-  renderRatios(f);
+  // 이상 신호 → 표·차트·신호 목록이 같은 결과를 쓴다
+  d.anomalies = detectAnomalies(f, d.dart?.disclosures);
+  renderRatioCards(d);
+  renderAnomalies(d);
+  renderSignals(d);
+  renderFinTable(f, d.anomalies);
+  renderStatements(d);
   renderPeers(d);
+  renderHeader(d, total, v, qualRisk);
+  if (askState.key !== companyKey(d)) resetAsk(d);
+  drawCharts();
   renderMezz(m);
+  renderCredit(d);
   renderRisks(d.risks || []);
   calc();
 }
@@ -491,7 +667,7 @@ function drawPrice(p) {
   const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, width: "100%", role: "img", "aria-label": "월별 주가 추이" });
   ticks.forEach(t => { svg.append(svgEl("line", { x1: L, x2: W - R, y1: y(t), y2: y(t), stroke: "var(--line)", "stroke-width": 1 })); const tx = svgEl("text", { x: L - 6, y: y(t) + 4, "text-anchor": "end" }); tx.textContent = fmt(t); svg.append(tx); });
   const every = Math.ceil(s.length / Math.max(2, Math.floor((W - L - R) / 70)));
-  s.forEach((d, i) => { if (i % every === 0 || i === s.length - 1) { const tx = svgEl("text", { x: x(i), y: H - 8, "text-anchor": i === s.length - 1 ? "end" : "middle" }); tx.textContent = d.m.slice(2).replace("-", "."); svg.append(tx); } });
+  s.forEach((d, i) => { if ((i % every === 0 && s.length - 1 - i >= every / 2) || i === s.length - 1) { const tx = svgEl("text", { x: x(i), y: H - 8, "text-anchor": i === s.length - 1 ? "end" : "middle" }); tx.textContent = d.m.slice(2).replace("-", "."); svg.append(tx); } });
   const line = s.map((d, i) => `${i ? "L" : "M"}${x(i)},${y(d.p)}`).join("");
   svg.append(svgEl("path", { d: line + `L${x(s.length - 1)},${y(y0)}L${x(0)},${y(y0)}Z`, fill: "var(--accent)", "fill-opacity": 0.1 }));
   svg.append(svgEl("path", { d: line, fill: "none", stroke: "var(--accent)", "stroke-width": 2 }));
@@ -512,59 +688,6 @@ function drawPrice(p) {
   });
   svg.addEventListener("pointerleave", () => { tip.hidden = true; dot.setAttribute("visibility", "hidden"); });
   box.append(svg, tip);
-}
-
-function drawFin(f) {
-  const box = document.getElementById("finChart"); box.replaceChildren();
-  const yrs = f.years || []; if (!yrs.length) { box.append(el("p", { class: "muted" }, "재무 데이터가 없습니다.")); return; }
-  const W = Math.max(320, box.clientWidth || 560), H = 240, L = 54, R = 10, T = 14, B = 28;
-  const all = [...(f.revenue || []), ...(f.operatingIncome || []), 0].filter(isNum);
-  const ticks = niceTicks(Math.min(...all), Math.max(...all)); const y0 = ticks[0], y1 = ticks[ticks.length - 1];
-  const y = v => T + (H - T - B) * (1 - (v - y0) / (y1 - y0));
-  const band = (W - L - R) / yrs.length; const bw = Math.min(28, band * 0.32);
-  const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, width: "100%", role: "img", "aria-label": "연도별 매출액과 영업이익" });
-  ticks.forEach(t => { svg.append(svgEl("line", { x1: L, x2: W - R, y1: y(t), y2: y(t), stroke: t === 0 ? "var(--fg-muted)" : "var(--line)", "stroke-width": 1 })); const tx = svgEl("text", { x: L - 6, y: y(t) + 4, "text-anchor": "end" }); tx.textContent = fmt(t); svg.append(tx); });
-  const tip = el("div", { class: "tip", hidden: "" });
-  yrs.forEach((yr, i) => {
-    const cx = L + band * (i + 0.5);
-    [["revenue", "var(--accent)", -1, "매출액"], ["operatingIncome", "var(--series-2)", 1, "영업이익"]].forEach(([k, c, side, lab]) => {
-      const v = f[k]?.[i]; if (!isNum(v)) return;
-      const r = svgEl("rect", { x: cx + (side < 0 ? -bw - 1 : 1), y: Math.min(y(v), y(0)), width: bw, height: Math.max(1, Math.abs(y(v) - y(0))), fill: v < 0 ? "var(--bad)" : c, rx: 2 });
-      r.addEventListener("pointerenter", () => { const rr = svg.getBoundingClientRect(); tip.hidden = false; tip.textContent = yr + " " + lab + " " + fmt(v) + (f.unit || ""); tip.style.left = Math.min(Math.max(cx / W * rr.width, 70), rr.width - 70) + "px"; tip.style.top = (Math.min(y(v), y(0)) / H * rr.height) + "px"; });
-      r.addEventListener("pointerleave", () => tip.hidden = true);
-      svg.append(r);
-    });
-    const tx = svgEl("text", { x: cx, y: H - 8, "text-anchor": "middle" }); tx.textContent = yr; svg.append(tx);
-  });
-  box.append(svg, tip);
-  document.getElementById("finUnit").textContent = "단위: " + (f.unit || "억원");
-}
-
-function renderFinTable(f) {
-  const t = document.getElementById("finTable"); t.replaceChildren();
-  const yrs = f.years || [];
-  const head = el("tr", {}, el("th", {}, "항목")); yrs.forEach(y => head.append(el("th", {}, y))); t.append(el("thead", {}, head));
-  const body = el("tbody");
-  [["매출액", "revenue"], ["영업이익", "operatingIncome"], ["당기순이익", "netIncome"], ["영업활동현금흐름", "ocf"]].forEach(([lab, k]) => {
-    const tr = el("tr", {}, el("td", {}, lab)); yrs.forEach((_, i) => { const v = f[k]?.[i]; tr.append(el("td", { style: isNum(v) && v < 0 ? "color: var(--bad)" : "" }, fmt(v))); }); body.append(tr);
-  });
-  const lastCol = yrs.length ? yrs.length - 1 : 0;
-  [["자산총계", "totalAssets"], ["부채총계", "totalLiabilities"], ["자본총계", "equity"], ["현금성자산", "cash"], ["단기차입금", "shortDebt"], ["총차입금", "totalDebt"]].forEach(([lab, k]) => {
-    const tr = el("tr", {}, el("td", {}, lab)); yrs.forEach((_, i) => tr.append(el("td", {}, i === lastCol ? fmt(f[k]) : ""))); body.append(tr);
-  });
-  t.append(body);
-}
-
-function renderRatios(f) {
-  const t = document.getElementById("ratioTable"); t.replaceChildren();
-  t.append(el("thead", {}, el("tr", {}, el("th", {}, "지표"), el("th", {}, "값"), el("th", {}, "상태"), el("th", {}, "기준"))));
-  const body = el("tbody");
-  for (const [lab, v, unit, judge, note] of ratios(f)) {
-    const has = v != null; const cls = has ? judge(v) : "na";
-    const shown = !has ? "—" : typeof v === "string" ? v : unit === "x" ? fmt(v, 1) + "x" : unit === "%" ? pct(v) : fmt(v) + " " + unit;
-    body.append(el("tr", {}, el("td", {}, lab), el("td", {}, shown), el("td", {}, el("span", { class: "pill " + cls }, { ok: "양호", warn: "주의", bad: "위험", na: "자료 없음" }[cls])), el("td", { class: "muted", style: "font-family:var(--font-body);font-size:0.78rem;text-align:left" }, note)));
-  }
-  t.append(body);
 }
 
 function renderPeers(d) {
@@ -605,8 +728,11 @@ function renderMezz(m) {
   const cur = current.price?.current; const body = el("tbody");
   const gapCell = x => { const gap = isNum(cur) && x.conversionPrice > 0 ? (cur / x.conversionPrice - 1) * 100 : null; return el("td", { style: isNum(gap) ? "color: var(--" + (gap >= 0 ? "ok" : "bad") + ")" : "" }, isNum(gap) ? (gap > 0 ? "+" : "") + fmt(gap, 1) + "%" : "—"); };
   if (dartList) {
-    t.append(el("thead", {}, el("tr", {}, ...["구분", "결의일", "발행액(억원)", "전환/행사가", "최저 조정가", "현재가 대비", "표면/만기(%)", "전환청구 시작", "만기"].map(h => el("th", {}, h)))));
-    list.forEach(x => body.append(el("tr", {}, el("td", {}, [x.type, x.round].filter(Boolean).join(" ")), el("td", {}, x.decided || "—"), el("td", {}, fmt(x.amount)), el("td", {}, fmt(x.conversionPrice)), el("td", {}, fmt(x.refixFloor)), gapCell(x), el("td", {}, fmt(x.coupon, 1) + " / " + fmt(x.ytm, 1)), el("td", {}, x.convStart || "—"), el("td", {}, x.maturity || "—"))));
+    const adv = current.price?.avgDailyValue;
+    t.append(el("thead", {}, el("tr", {}, ...["구분", "결의일", "발행액(억원)", "전환/행사가", "최저 조정가", "현재가 대비", "표면/만기(%)", "전환청구 시작", "매도 소요일*", "만기"].map(h => el("th", {}, h)))));
+    list.forEach(x => { const ed = exitDays(x.amount, adv); body.append(el("tr", {}, el("td", {}, [x.type, x.round].filter(Boolean).join(" ")), el("td", {}, x.decided || "—"), el("td", {}, fmt(x.amount)), el("td", {}, fmt(x.conversionPrice)), el("td", {}, fmt(x.refixFloor)), gapCell(x), el("td", {}, fmt(x.coupon, 1) + " / " + fmt(x.ytm, 1)), el("td", {}, x.convStart || "—"),
+      el("td", { style: isNum(ed) ? "color: var(--" + (ed > 40 ? "bad" : ed > 15 ? "warn" : "ok") + ")" : "" }, isNum(ed) ? fmt(ed, 0) + "일" : "—"), el("td", {}, x.maturity || "—"))); });
+    body.append(el("tr", {}, el("td", { colspan: "10", class: "muted", style: "font-family:var(--font-body);font-size:0.8rem;text-align:left;white-space:normal" }, "* 매도 소요일: 전환 물량 전체를 일평균 거래대금의 20%씩 매도한다고 가정한 날수. 15일 초과 주의, 40일 초과 위험.")));
   } else {
     t.append(el("thead", {}, el("tr", {}, ...["구분", "잔액(억원)", "전환/행사가", "리픽싱 하한", "현재가 대비", "풋 시점", "만기"].map(h => el("th", {}, h)))));
     list.forEach(x => body.append(el("tr", {}, el("td", {}, [x.type, x.round].filter(Boolean).join(" ")), el("td", {}, fmt(x.amount)), el("td", {}, fmt(x.conversionPrice)), el("td", {}, fmt(x.refixFloor)), gapCell(x), el("td", {}, x.putDate || "—"), el("td", {}, x.maturity || "—"))));
@@ -818,7 +944,7 @@ function buildQualPrompt(v) {
     financials: { unit: "억원", years: f.years, revenue: f.revenue, operatingIncome: f.operatingIncome, pretaxIncome: f.pretaxIncome, netIncome: f.netIncome, ocf: f.ocf, equityHist: f.equityHist,
       balance: { asOf: f.balanceAsOf, cash: f.cash, shortDebt: f.shortDebt, totalDebt: f.totalDebt, liabilities: f.totalLiabilities, equity: f.equity } },
     listingFlags: listing.flags.map(x => x.label + ": " + x.value),
-    mezzanine: d.mezzanine, audit: d.audit,
+    mezzanine: d.mezzanine, audit: d.audit, credit: d.credit?.ratings || "공개 신용등급 없음",
   };
   const disc = (d.disclosures || []).slice(0, 200).map(x => `${x.d}|${x.t}|${x.n}`).join("\n");
   return `당신은 한국 메자닌(CB·BW·EB) 투자 심사역입니다. 아래 기업의 정성평가를 하세요. 숫자로 일률화하기 어려운 특이사항(파생·특수 계약, 상장유지 특례, 감사·지배구조·소송, 자금조달 패턴, 사업 이벤트)을 찾아내는 것이 목적입니다.
@@ -869,6 +995,491 @@ document.getElementById("qualBtn").addEventListener("click", async () => {
   const n = a.items.filter(x => x.status === "risk").length;
   setStatus(`정성평가를 마쳤습니다. 위험 ${n}건. 결과는 저장돼 다음에 바로 보입니다.`);
 });
+
+// ── 신용등급 (한국신용평가) ─────────────────────────────────────────────
+const CREDIT_ORDER = [/회사채|무보증|선순위/, /Issuer/i, /보증사채/, /기업어음/, /단기사채/];
+function creditMain(c) {
+  const rs = c?.ratings || []; if (!rs.length) return null;
+  for (const rx of CREDIT_ORDER) { const r = rs.find(x => rx.test(x.type)); if (r) return r; }
+  return rs[0];
+}
+// 장기등급 위험도: BBB 이하·전망 부정적이면 주의, BB 이하면 위험 (투기등급)
+function creditClass(r) {
+  if (!r) return "na";
+  const g = r.grade || "";
+  if (/^(BB|B|CCC|CC|C|D)/.test(g) || /^(A3|B|C|D)$/.test(g)) return "bad";
+  if (/^BBB/.test(g) || /부정적|하향/.test(r.outlook || "")) return "warn";
+  return "ok";
+}
+function renderCredit(d) {
+  const t = document.getElementById("creditTable"); t.replaceChildren();
+  const c = d.dart?.credit, src = document.getElementById("src-credit");
+  src.textContent = c ? "한국신용평가" : ""; src.className = "src" + (c ? " dart" : "");
+  t.append(el("thead", {}, el("tr", {}, ...["구분", "등급", "전망", "평가일", "원문"].map(h => el("th", {}, h)))));
+  const body = el("tbody");
+  if (!c?.ratings?.length) body.append(el("tr", {}, el("td", {}, d.dart ? "공개된 신용등급 없음" : "DART 수집 기업만 조회합니다"), el("td", {}, ""), el("td", {}, ""), el("td", {}, ""), el("td", {}, "")));
+  else c.ratings.forEach(r => body.append(el("tr", {}, el("td", {}, r.type), el("td", {}, el("span", { class: "pill " + creditClass(r) }, r.grade)), el("td", {}, r.outlook || ""), el("td", {}, r.date || ""),
+    el("td", {}, el("a", { href: "https://www.kisrating.com/ratingsSearch/corp_overview.do?kiscd=" + encodeURIComponent(c.kiscd), target: "_blank", rel: "noopener", style: "color:var(--accent)" }, "한신평")))));
+  t.append(body);
+}
+
+// 전환 물량을 시장에서 소화하는 데 걸리는 날 (일평균 거래대금의 20%씩 판다고 가정)
+const exitDays = (amount, adv) => isNum(amount) && adv > 0 ? amount / (adv * 0.2) : null;
+
+// ── 재무제표 상세 (전체 계정) ─────────────────────────────────────────────
+const STMTS = [["BS", "재무상태표"], ["IS", "손익계산서"], ["CF", "현금흐름표"]];
+const STMT_MAIN = {
+  BS: /총계|^유동자산$|^비유동자산$|^유동부채$|^비유동부채$|현금및현금성자산|매출채권|재고자산|차입금|사채|유형자산|무형자산|^자본금$|이익잉여금|결손금/,
+  IS: /^매출액|수익\(매출액\)|영업수익|매출원가|매출총|판매비|영업이익|영업손|금융수익|금융(비용|원가)|법인세|당기순/,
+  CF: /활동.*현금흐름|현금흐름$|기초현금|기말현금|이자.*지급|사채의\s?(발행|증가)|차입금의\s?(차입|상환|증가|감소)|유상증자|주식의\s?발행/,
+};
+const STMT_BOLD = /총계|합계|^유동자산$|^비유동자산$|^유동부채$|^비유동부채$|^자본$|현금흐름$|^매출액|^매출총|^영업이익|^당기순|법인세비용차감전|기말현금/;
+const stmtState = { sj: "BS", q: "", main: false };
+(function buildStmtSeg() {
+  const seg = document.getElementById("stmtSeg");
+  STMTS.forEach(([k, label]) => {
+    const b = el("button", { type: "button", role: "tab", id: "stmtSeg-" + k, "aria-selected": String(k === stmtState.sj) }, label);
+    b.addEventListener("click", () => { stmtState.sj = k; renderStatements(current); });
+    seg.append(b);
+  });
+  document.getElementById("stmtSearch").addEventListener("input", e => { stmtState.q = e.target.value.trim(); renderStatements(current); });
+  document.getElementById("stmtMain").addEventListener("change", e => { stmtState.main = e.target.checked; renderStatements(current); });
+})();
+function renderStatements(d) {
+  const panel = document.getElementById("stmtPanel"), t = document.getElementById("stmtTable"), note = document.getElementById("stmtNote");
+  const st = d.financials?.statements;
+  panel.hidden = !st;
+  t.replaceChildren(); if (!st) return;
+  STMTS.forEach(([k]) => document.getElementById("stmtSeg-" + k).setAttribute("aria-selected", String(k === stmtState.sj)));
+  const src = document.getElementById("src-stmt"); src.textContent = "DART · " + (d.financials.fsDiv || "") + " · 억원"; src.className = "src dart";
+  const cols = st.columns || [], hasInterim = cols.length > (d.financials.years || []).length;
+  const nAnnual = (d.financials.years || []).length;
+  const q = stmtState.q.replace(/\s+/g, ""), mainRx = STMT_MAIN[stmtState.sj];
+  const rows = (st[stmtState.sj] || []).filter(r => (!q || r.n.replace(/\s+/g, "").includes(q)) && (!stmtState.main || mainRx.test(r.n.replace(/\s+/g, ""))));
+  const head = el("tr", {}, el("th", {}, "계정"));
+  cols.forEach((c, i) => head.append(el("th", {}, i >= nAnnual ? c + (stmtState.sj === "BS" ? "말" : " 누적") : c)));
+  head.append(el("th", {}, "전년 대비"), el("th", {}, ""));
+  t.append(el("thead", {}, head));
+  const body = el("tbody");
+  rows.forEach(r => {
+    const bold = STMT_BOLD.test(r.n.replace(/\s+/g, ""));
+    const tr = el("tr", { class: bold ? "h" : "c" }, el("td", {}, r.n));
+    r.v.forEach(v => tr.append(el("td", { style: isNum(v) && v < 0 ? "color: var(--bad)" : "" }, fmt(v, Math.abs(v) < 10 && v !== 0 ? 1 : 0))));
+    const a = r.v[nAnnual - 1], b = r.v[nAnnual - 2];
+    const yoy = isNum(a) && isNum(b) && b !== 0 ? (a - b) / Math.abs(b) * 100 : null;
+    tr.append(el("td", { style: isNum(yoy) && Math.abs(yoy) >= 50 ? "font-weight:600;color:var(--warn)" : "" }, isNum(yoy) ? (yoy > 0 ? "+" : "") + fmt(yoy, 0) + "%" : "—"));
+    const btn = el("button", { type: "button", class: "ask-mini", title: r.n + " 계정을 Claude에게 묻기" }, "묻기");
+    btn.addEventListener("click", () => openAsk(`${STMTS.find(x => x[0] === stmtState.sj)[1]}의 '${r.n}' 계정이 ${cols.map((c, i) => c + " " + fmt(r.v[i])).join(", ")}(억원)로 움직였습니다. 이 계정이 무엇이고, 이 추이가 메자닌 투자 관점에서 무엇을 뜻하는지 설명해 주세요.`, true));
+    tr.append(el("td", { class: "ask" }, btn));
+    body.append(tr);
+  });
+  if (!rows.length) body.append(el("tr", {}, el("td", { colspan: String(cols.length + 3), class: "muted" }, "조건에 맞는 계정이 없습니다.")));
+  t.append(body);
+  note.textContent = `${rows.length}개 계정 · 단위 억원 · ` + (hasInterim ? `${last(cols)}: ${stmtState.sj === "BS" ? "반기·분기 말 잔액" : "연초부터 누적 금액"}. ` : "") + "전년 대비는 최근 두 사업연도 비교이며 50% 이상 변동은 주황색입니다. 연도마다 이름이 조금 다른 계정은 한 줄로 합쳤습니다.";
+}
+
+// ── 공통 차트: 연도별 막대·선, 기준선, 이상 신호 표시, 툴팁 ─────────────────────
+function drawSeriesChart(box, o) {
+  box.replaceChildren();
+  const labels = o.labels || [];
+  const ser = (o.series || []).filter(sr => (sr.values || []).some(isNum));
+  if (!labels.length || !ser.length) { box.append(el("p", { class: "muted", style: "font-size:0.85rem" }, o.empty || "데이터가 없습니다.")); return; }
+  if (ser.length > 1) box.append(el("div", { class: "legend", style: "margin-bottom:6px" }, ...ser.map(sr => el("span", { style: "--c:" + sr.color }, sr.name))));
+  const W = Math.max(300, box.clientWidth || 520), H = o.height || 210, L = 56, R = 14, T = 14, B = 26;
+  const fv = o.fmt || (v => fmt(v));
+  const vals = ser.flatMap(sr => sr.values.filter(isNum)).concat((o.thresholds || []).map(t => t.v)).concat(ser.some(sr => sr.type === "bar") ? [0] : []);
+  const ticks = niceTicks(Math.min(...vals), Math.max(...vals)), y0 = ticks[0], y1 = ticks[ticks.length - 1];
+  const y = v => T + (H - T - B) * (1 - (v - y0) / ((y1 - y0) || 1));
+  const band = (W - L - R) / labels.length, cx = i => L + band * (i + 0.5);
+  const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, width: "100%", role: "img", "aria-label": o.title || "연도별 추이" });
+  ticks.forEach(t => {
+    svg.append(svgEl("line", { x1: L, x2: W - R, y1: y(t), y2: y(t), stroke: t === 0 && y0 < 0 ? "var(--fg-muted)" : "var(--line)", "stroke-width": 1 }));
+    const tx = svgEl("text", { x: L - 6, y: y(t) + 4, "text-anchor": "end" }); tx.textContent = (o.tick || fv)(t); svg.append(tx);
+  });
+  (o.thresholds || []).forEach(t => {
+    svg.append(svgEl("line", { x1: L, x2: W - R, y1: y(t.v), y2: y(t.v), stroke: `var(--${t.cls || "warn"})`, "stroke-dasharray": "5 4", "stroke-width": 1.5 }));
+    const tx = svgEl("text", { x: W - R, y: y(t.v) - 4, "text-anchor": "end", style: `fill: var(--${t.cls || "warn"})` }); tx.textContent = t.label; svg.append(tx);
+  });
+  const bars = ser.filter(sr => sr.type === "bar"), bw = Math.min(24, band * 0.72 / Math.max(1, bars.length));
+  bars.forEach((sr, bi) => sr.values.forEach((v, i) => {
+    if (!isNum(v)) return;
+    const x = cx(i) - bw * bars.length / 2 + bi * bw;
+    svg.append(svgEl("rect", { x: x + 1, y: Math.min(y(v), y(0)), width: bw - 2, height: Math.max(1, Math.abs(y(v) - y(0))), fill: v < 0 && sr.negBad !== false ? "var(--bad)" : sr.color, rx: 2 }));
+  }));
+  ser.filter(sr => sr.type !== "bar").forEach(sr => {
+    let d = "", pen = false;
+    sr.values.forEach((v, i) => { if (isNum(v)) { d += (pen ? "L" : "M") + cx(i) + "," + y(v); pen = true; } else pen = false; });
+    svg.append(svgEl("path", { d, fill: "none", stroke: sr.color, "stroke-width": 2 }));
+    sr.values.forEach((v, i) => { if (isNum(v)) svg.append(svgEl("circle", { cx: cx(i), cy: y(v), r: i === sr.values.length - 1 ? 4 : 2.5, fill: sr.color })); });
+  });
+  // 이상 신호: 빨간 고리
+  (o.marks || []).forEach(m => {
+    const sr = o.series[m.si], v = sr?.values?.[m.i]; if (!isNum(v)) return;
+    let mx = cx(m.i);
+    if (sr.type === "bar") { const bi = bars.indexOf(sr); mx = cx(m.i) - bw * bars.length / 2 + bi * bw + bw / 2; }
+    svg.append(svgEl("circle", { cx: mx, cy: y(v), r: 8, fill: "none", stroke: "var(--bad)", "stroke-width": 2 }));
+  });
+  labels.forEach((lb, i) => { const tx = svgEl("text", { x: cx(i), y: H - 8, "text-anchor": "middle" }); tx.textContent = lb; svg.append(tx); });
+  // 툴팁: 연도 칸에 올리면 모든 시리즈 값
+  const tip = el("div", { class: "tip", hidden: "" });
+  labels.forEach((lb, i) => {
+    const hit = svgEl("rect", { x: L + band * i, y: T, width: band, height: H - T - B, fill: "transparent" });
+    hit.addEventListener("pointerenter", () => {
+      const r = svg.getBoundingClientRect();
+      tip.textContent = lb + "  " + ser.map(sr => sr.name + " " + (isNum(sr.values[i]) ? fv(sr.values[i]) : "—")).join(" · ");
+      tip.hidden = false; tip.style.left = Math.min(Math.max(cx(i) / W * r.width, 110), r.width - 110) + "px"; tip.style.top = (T / H * r.height + 8) + "px";
+    });
+    hit.addEventListener("pointerleave", () => tip.hidden = true);
+    svg.append(hit);
+  });
+  box.append(svg, tip);
+}
+
+function sparkline(values, cls) {
+  const v = values.map(x => isNum(x) ? x : null), pts = v.map((x, i) => [i, x]).filter(p => p[1] != null);
+  const svg = svgEl("svg", { viewBox: "0 0 120 36", preserveAspectRatio: "none", "aria-hidden": "true" });
+  if (pts.length < 2) return svg;
+  const lo = Math.min(...pts.map(p => p[1])), hi = Math.max(...pts.map(p => p[1])), sx = i => 4 + i * 112 / Math.max(1, v.length - 1), sy = x => 32 - (hi === lo ? 14 : (x - lo) / (hi - lo) * 28);
+  const color = `var(--${cls === "na" ? "fg-muted" : cls})`;
+  svg.append(svgEl("path", { d: pts.map((p, k) => (k ? "L" : "M") + sx(p[0]) + "," + sy(p[1])).join(""), fill: "none", stroke: color, "stroke-width": 1.8, "vector-effect": "non-scaling-stroke" }));
+  const lp = pts[pts.length - 1]; svg.append(svgEl("circle", { cx: sx(lp[0]), cy: sy(lp[1]), r: 2.6, fill: color }));
+  return svg;
+}
+
+// ── 연도별 비율 ──────────────────────────────────────────────────────────
+function ratioSeries(f) {
+  const yrs = f.years || [], at = (k, i) => f[k]?.[i];
+  const div = (a, b, k = 100) => isNum(a) && isNum(b) && b > 0 ? a / b * k : null;
+  return {
+    debt: yrs.map((_, i) => div(at("liabilitiesHist", i), at("equityHist", i))),
+    cashCover: yrs.map((_, i) => div(at("cashHist", i), at("shortDebtHist", i))),
+    opMargin: yrs.map((_, i) => div(at("operatingIncome", i), at("revenue", i))),
+    loss: yrs.map((_, i) => { const pt = at("pretaxIncome", i), eq = at("equityHist", i); return isNum(pt) && isNum(eq) && eq > 0 ? (pt < 0 ? -pt / eq * 100 : 0) : null; }),
+    revGrowth: yrs.map((_, i) => i && isNum(at("revenue", i)) && at("revenue", i - 1) > 0 ? (at("revenue", i) / at("revenue", i - 1) - 1) * 100 : null),
+  };
+}
+
+function renderRatioCards(d) {
+  const box = document.getElementById("ratioCards"); box.replaceChildren();
+  const f = d.financials || {}, rs = ratioSeries(f), opi = last(f.operatingIncome), ocf = last(f.ocf);
+  const bsNote = f.balanceAsOf ? f.balanceAsOf + " 기준" : "최근 연도";
+  const cards = [
+    { name: "부채비율", v: isNum(f.totalLiabilities) && f.equity > 0 ? f.totalLiabilities / f.equity * 100 : last(rs.debt), unit: "%", series: rs.debt, judge: v => v <= 150 ? "ok" : v <= 250 ? "warn" : "bad", sub: bsNote + " · 150% 이하 양호" },
+    { name: "현금 / 단기차입금", v: isNum(f.cash) && f.shortDebt > 0 ? f.cash / f.shortDebt * 100 : last(rs.cashCover), unit: "%", series: rs.cashCover, judge: v => v >= 100 ? "ok" : v >= 50 ? "warn" : "bad", sub: bsNote + " · 100% 이상이면 단기 상환 가능" },
+    { name: "법차손 / 자기자본", v: last(rs.loss), unit: "%", series: rs.loss, judge: v => v > 50 ? "bad" : v > 40 ? "warn" : "ok", sub: "50% 초과 3년 중 2회면 관리종목 요건" },
+    { name: "영업이익률", v: last(rs.opMargin), unit: "%", series: rs.opMargin, judge: v => v >= 8 ? "ok" : v >= 0 ? "warn" : "bad", sub: "최근 사업연도" },
+    { name: "매출성장률", v: last(rs.revGrowth), unit: "%", series: rs.revGrowth, judge: v => v >= 10 ? "ok" : v >= 0 ? "warn" : "bad", sub: "전년 대비" },
+    { name: "영업현금흐름", v: ocf, unit: "억원", series: f.ocf || [], judge: v => v > 0 ? "ok" : "bad", sub: "적자면 상환재원을 외부 조달에 의존" },
+    { name: "이자보상배율", v: isNum(opi) && f.interestExpense > 0 ? opi / f.interestExpense : null, unit: "x", judge: v => v >= 3 ? "ok" : v >= 1 ? "warn" : "bad", sub: "1 미만이면 이자도 못 냄" },
+    { name: "현금 소진 기간", v: isNum(ocf) && ocf < 0 && isNum(f.cash) ? f.cash / -ocf * 12 : null, unit: "개월", judge: v => v >= 24 ? "ok" : v >= 12 ? "warn" : "bad", sub: isNum(ocf) && ocf >= 0 ? "영업현금흐름 흑자" : "현금 ÷ 연간 영업현금 유출" },
+    { name: "순차입금", v: isNum(f.totalDebt) && isNum(f.cash) ? f.totalDebt - f.cash : null, unit: "억원", judge: v => v <= 0 ? "ok" : "warn", sub: "음수면 순현금" },
+  ];
+  for (const c of cards) {
+    const cls = isNum(c.v) ? c.judge(c.v) : "na";
+    const val = !isNum(c.v) ? "—" : c.unit === "%" ? pct(c.v) : c.unit === "x" ? fmt(c.v, 1) + "x" : fmt(c.v) + (c.unit === "개월" ? "개월" : "");
+    const card = el("div", { class: "rcard" },
+      el("div", { class: "top" }, el("span", { class: "name" }, c.name), el("span", { class: "pill " + cls }, { ok: "양호", warn: "주의", bad: "위험", na: "자료 없음" }[cls])),
+      el("span", { class: "val" }, val + (c.unit === "억원" && isNum(c.v) ? "억" : "")));
+    if (c.series && c.series.filter(isNum).length >= 2) card.append(sparkline(c.series, cls), el("span", { class: "sub" }, (f.years || [])[0] + "–" + last(f.years || []) + " · " + c.sub));
+    else card.append(el("span", { class: "sub" }, c.sub));
+    box.append(card);
+  }
+}
+
+// ── 재무 이상 신호 (규칙 기반, Claude 호출 없음) ─────────────────────────────
+const ANOM_METRICS = [
+  { k: "revenue", label: "매출액", sign: false, rx: /계약|기술이전|라이선스|공급|양수|합병|분할/ },
+  { k: "operatingIncome", label: "영업이익", sign: true, rx: /계약|기술이전|라이선스|손상|구조조정/ },
+  { k: "pretaxIncome", label: "법인세차감전손익", sign: true, rx: /손상|파생|평가|처분|전환/ },
+  { k: "netIncome", label: "당기순이익", sign: true, rx: /손상|파생|평가|처분|전환|소송/ },
+  { k: "ocf", label: "영업활동현금흐름", sign: true, rx: /계약|공급|매출채권/ },
+  { k: "equityHist", label: "자본총계", sign: true, rx: /유상증자|전환|신주|감자|자기주식|교환/ },
+  { k: "liabilitiesHist", label: "부채총계", sign: false, rx: /사채|차입|전환사채|교환사채|신주인수권/ },
+  { k: "cashHist", label: "현금성자산", sign: false, rx: /유상증자|사채|차입|처분|양도/ },
+  { k: "shortDebtHist", label: "단기차입금", sign: false, rx: /사채|차입|만기|조기상환/ },
+];
+const ANOM_WHY = {
+  revenue: { up: ["기술이전 계약금·마일스톤 같은 일회성 수익", "인수합병으로 연결 범위 확대", "대형 수주·신제품 출시"], down: ["전년의 일회성 수익(기술이전·마일스톤)이 빠짐", "주요 고객·계약 종료", "사업 양도·연결 제외"] },
+  operatingIncome: { up: ["매출 급증 또는 일회성 수익", "연구개발비 축소·자산화"], down: ["연구개발비·임상비용 증가", "일회성 매출 소멸", "인건비·주식보상비용 증가"] },
+  pretaxIncome: { up: ["파생상품·금융자산 평가이익", "자산 처분이익"], down: ["메자닌 전환권·파생부채 평가손실", "손상차손", "지분법 손실"] },
+  netIncome: { up: ["영업외 일회성 이익", "법인세 효과"], down: ["메자닌 파생부채 평가손실·이자비용", "손상차손", "이연법인세자산 상각"] },
+  ocf: { up: ["계약금 선수취", "운전자본 회수"], down: ["매출채권·재고 증가", "연구개발 현금 지출 확대", "선급금 지급"] },
+  equityHist: { up: ["유상증자·메자닌 전환으로 자본 유입", "자기주식 처분"], down: ["대규모 손실로 결손 누적", "자기주식 취득", "감자"] },
+  liabilitiesHist: { up: ["CB·EB 등 메자닌 발행", "차입 확대", "계약부채(선수금) 증가"], down: ["메자닌 전환·상환", "차입금 상환"] },
+  cashHist: { up: ["유상증자·메자닌 발행 자금 유입", "자산 매각"], down: ["영업 적자로 소진", "차입금·사채 상환", "단기금융상품으로 이동(현금성자산 정의 확인)"] },
+  shortDebtHist: { up: ["메자닌 풋 시점 도래로 유동성 대체", "단기 차입 확대"], down: ["상환·차환", "전환으로 소멸"] },
+  gapOpNi: ["메자닌 파생부채(전환권) 평가손익", "금융자산 평가·처분손익", "손상차손·지분법손익", "이자비용"],
+  gapNiOcf: ["매출채권·재고 증가(이익의 질 점검)", "비현금 이익(평가이익·지분법이익)", "선급금·선지급 비용"],
+};
+
+function detectAnomalies(f, disclosures) {
+  const yrs = f.years || [], out = [];
+  const assets = Math.max(...(f.totalAssetsHist || [f.totalAssets]).filter(isNum), 0);
+  const floor = Math.max(10, assets * 0.03);   // 억원. 자산 3% 미만 변동은 무시
+  const related = (rx, yr) => rx && Array.isArray(disclosures) ? disclosures.filter(x => rx.test(x.t) && (x.d || "").slice(0, 4) >= String(yr)).slice(0, 3) : [];
+  const push = (o) => out.push({ id: o.k + ":" + o.i, ...o, year: yrs[o.i] });
+  for (const m of ANOM_METRICS) {
+    const vals = f[m.k] || [];
+    for (let i = 1; i < vals.length; i++) {
+      const a = vals[i - 1], b = vals[i]; if (!isNum(a) || !isNum(b)) continue;
+      const delta = b - a, rel = a !== 0 ? Math.abs(delta / a) : Infinity;
+      let kind = null, sev = "mid";
+      if (m.k === "equityHist" && a > 0 && b <= 0) { kind = "완전자본잠식"; sev = "high"; }
+      else if (m.k === "equityHist" && a < 0 && b > 0) { kind = "자본잠식 해소"; sev = "high"; }
+      else if (m.sign && a > 0 && b < 0) { kind = "적자 전환"; sev = "high"; }
+      else if (m.sign && a < 0 && b > 0) kind = "흑자 전환";
+      else if (m.k === "revenue" && a > floor && b <= a * 0.1) { kind = "매출 급감"; sev = "high"; }
+      // 자산의 15% 이상 움직였으면 비율이 작아도 위험으로 본다
+      else if (Math.abs(delta) >= floor && rel >= 0.5) { kind = delta > 0 ? "급증" : "급감"; sev = rel >= 1 || Math.abs(delta) >= floor * 5 ? "high" : "mid"; }
+      if (!kind) continue;
+      push({ k: m.k, i, label: m.label, kind, sev, from: a, to: b, mag: Math.abs(delta) / floor, change: isFinite(rel) ? delta / Math.abs(a) * 100 : null,
+             why: (ANOM_WHY[m.k] || {})[delta > 0 ? "up" : "down"] || [], rel: related(m.rx, yrs[i]) });
+    }
+  }
+  yrs.forEach((yr, i) => {
+    const op = f.operatingIncome?.[i], ni = f.netIncome?.[i], ocf = f.ocf?.[i];
+    if (isNum(op) && isNum(ni) && Math.abs(ni - op) >= Math.max(floor, Math.abs(op) * 0.5))
+      push({ k: "netIncome", i, label: "영업이익 vs 순이익", kind: ni < op ? "영업외손실 큼" : "영업외이익 큼", sev: Math.abs(ni - op) >= Math.max(Math.abs(op), floor * 2) ? "high" : "mid",
+             from: op, to: ni, mag: Math.abs(ni - op) / floor, change: null, pair: ["영업이익", "순이익"], why: ANOM_WHY.gapOpNi, rel: related(/파생|평가|손상|처분|전환/, yr) });
+    if (isNum(ni) && isNum(ocf) && ni > 0 && ocf < 0)
+      push({ k: "ocf", i, label: "순이익 vs 영업현금흐름", kind: "이익은 흑자, 현금은 유출", sev: "high", from: ni, to: ocf, mag: Math.abs(ni - ocf) / floor, change: null, pair: ["순이익", "영업현금흐름"], why: ANOM_WHY.gapNiOcf, rel: [] });
+  });
+  const seen = new Set();
+  return out.filter(x => { const key = x.id + x.kind; if (seen.has(key)) return false; seen.add(key); return true; })
+            // 위험 먼저, 같은 등급이면 변동 규모(자산 대비)가 큰 순
+            .sort((a, b) => (a.sev === b.sev ? 0 : a.sev === "high" ? -1 : 1) || (b.mag || 0) - (a.mag || 0)).slice(0, 14);
+}
+
+function anomText(x, unit = "억원") {
+  if (x.pair) return `${x.year}년 ${x.pair[0]} ${fmt(x.from)} → ${x.pair[1]} ${fmt(x.to)}${unit}`;
+  return `${x.year - 1 || ""}→${x.year}년 ${fmt(x.from)} → ${fmt(x.to)}${unit}` + (isNum(x.change) ? ` (${x.change > 0 ? "+" : ""}${fmt(x.change, 0)}%)` : "");
+}
+function anomQuestion(x) {
+  return `${x.year}년 ${x.label}이(가) ${x.kind}했습니다 (${anomText(x)}). 왜 이렇게 됐을 가능성이 높은지, 메자닌 투자자 입장에서 무엇을 확인해야 하는지 알려주세요.`;
+}
+function askButton(q, label = "Claude에게 물어보기") {
+  const b = el("button", { type: "button", class: "btn-sm btn-ask" }, label);
+  b.addEventListener("click", () => openAsk(q, true));
+  return b;
+}
+function signalItem(cls, title, desc, why, rel, question) {
+  const li = el("li", { class: "signal sev-" + cls });
+  const mid = el("div", { style: "min-width:0" },
+    el("div", { class: "t" }, el("span", { class: "pill " + cls }, { bad: "위험", warn: "주의", na: "확인", ok: "양호" }[cls] || "확인"), title),
+    el("div", { class: "d" }, desc));
+  if (why?.length || rel?.length) {
+    const det = el("details", {}, el("summary", {}, "가능한 원인" + (rel?.length ? " · 관련 공시 " + rel.length + "건" : "")));
+    if (why?.length) { const ul = el("ul", { class: "why" }); why.slice(0, 3).forEach(w => ul.append(el("li", {}, w))); det.append(ul); }
+    if (rel?.length) { const r = el("div", { class: "rel" }); rel.forEach(x => r.append(el("a", { href: "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=" + encodeURIComponent(x.n), target: "_blank", rel: "noopener" }, (x.d || "").replace(/(\d{4})(\d{2})(\d{2})/, "$1.$2.$3") + " " + x.t))); det.append(r); }
+    mid.append(det);
+  }
+  li.append(mid, question ? askButton(question) : el("span"));
+  return li;
+}
+function renderAnomalies(d) {
+  const ul = document.getElementById("anomalyList"); ul.replaceChildren();
+  const list = d.anomalies || [];
+  document.getElementById("src-anom").textContent = list.length ? list.length + "건" : "";
+  if (!(d.financials?.years || []).length) { ul.append(el("li", { class: "muted" }, "재무 데이터가 없습니다.")); return; }
+  if (!list.length) { ul.append(el("li", { class: "muted", style: "font-size:0.88rem" }, "전년 대비 급변이나 이익·현금흐름 괴리가 크게 보이지 않습니다.")); return; }
+  const SHOW = 6;
+  list.forEach((x, n) => { const li = signalItem(x.sev === "high" ? "bad" : "warn", `${x.year}년 ${x.label} · ${x.kind}`, anomText(x), x.why, x.rel, anomQuestion(x)); if (n >= SHOW) li.hidden = true; ul.append(li); });
+  if (list.length > SHOW) {
+    const more = el("button", { type: "button", class: "btn-sm" }, `나머지 ${list.length - SHOW}건 더 보기`);
+    more.addEventListener("click", () => { ul.querySelectorAll("li[hidden]").forEach(li => li.hidden = false); more.remove(); });
+    ul.append(el("li", {}, more));
+  }
+}
+
+// 개요: 먼저 볼 신호 (재무 이상 상위 + 상장유지 + 정성 위험 + 상환능력)
+function renderSignals(d) {
+  const ul = document.getElementById("signalList"); ul.replaceChildren();
+  const items = [];
+  const lc = (d.dart || d.isExample) ? listingCheck(d) : null;
+  (lc?.flags || []).filter(x => x.cls === "bad" || x.cls === "warn").forEach(x =>
+    items.push([x.cls === "bad" ? 0 : 2, signalItem(x.cls, "상장유지 · " + x.label, x.value + " · " + x.note, null, null, `${x.label}이(가) ${x.value}입니다. 관리종목 지정 가능성과 메자닌 투자 시 확인할 점을 알려주세요.`)]));
+  (d.anomalies || []).filter(x => x.sev === "high").slice(0, 3).forEach(x =>
+    items.push([1, signalItem("bad", `재무 · ${x.year}년 ${x.label} ${x.kind}`, anomText(x), null, x.rel, anomQuestion(x))]));
+  (d.qual?.items || []).filter(x => x.status === "risk").forEach(x => {
+    const name = QUAL_ITEMS.find(q => q.key === x.key)?.name || x.key;
+    items.push([1, signalItem("bad", "정성 · " + name, x.finding || "", null, null, `정성평가에서 '${name}'이(가) 위험으로 나왔습니다. 근거와 투자 조건으로 보완할 방법을 알려주세요.`)]);
+  });
+  const cr = creditMain(d.dart?.credit), crc = creditClass(cr);
+  if (cr && (crc === "bad" || crc === "warn")) items.push([crc === "bad" ? 0 : 2, signalItem(crc, `신용등급 · ${cr.type} ${cr.grade}${cr.outlook ? " (" + cr.outlook + ")" : ""}`, "한국신용평가 " + (cr.date || ""), null, null, `신용등급이 ${cr.grade}${cr.outlook ? ", 전망 " + cr.outlook : ""}입니다. 메자닌 투자 시 이 등급이 의미하는 상환 위험과 협상할 조건을 알려주세요.`)]);
+  const rp = d.scores?.repayment;
+  if (rp && rp.score <= 2) items.push([0, signalItem("bad", "상환능력 · " + rp.score + "/5", rp.reason || "", null, null, "풋옵션 행사 시 상환 능력이 충분한지, 어떤 조건을 걸어야 하는지 알려주세요.")]);
+  items.sort((a, b) => a[0] - b[0]);
+  if (!items.length) { ul.append(el("li", { class: "muted", style: "font-size:0.88rem" }, d.dart || d.isExample ? "크게 튀는 신호가 없습니다. 아래 항목별 점수와 재무 탭을 확인하세요." : "DART 데이터가 있어야 신호를 계산합니다.")); return; }
+  items.slice(0, 6).forEach(([, li]) => ul.append(li));
+}
+
+function renderFinTable(f, anomalies = []) {
+  const t = document.getElementById("finTable"); t.replaceChildren();
+  const yrs = f.years || [];
+  const marks = new Map(); anomalies.forEach(x => { if (!x.pair && !marks.has(x.k + ":" + x.i)) marks.set(x.k + ":" + x.i, x); });
+  const head = el("tr", {}, el("th", {}, "항목")); yrs.forEach(y => head.append(el("th", {}, y))); t.append(el("thead", {}, head));
+  const body = el("tbody");
+  const rows = [["매출액", "revenue"], ["영업이익", "operatingIncome"], ["법인세차감전손익", "pretaxIncome"], ["당기순이익", "netIncome"], ["영업활동현금흐름", "ocf"],
+    ["자산총계", "totalAssetsHist", "totalAssets"], ["부채총계", "liabilitiesHist", "totalLiabilities"], ["자본총계", "equityHist", "equity"], ["현금성자산", "cashHist", "cash"], ["단기차입금", "shortDebtHist", "shortDebt"]];
+  rows.forEach(([lab, k, latestK]) => {
+    const vals = f[k] || (latestK ? yrs.map((_, i) => i === yrs.length - 1 ? f[latestK] : null) : []);
+    if (!vals.some(isNum)) return;
+    const tr = el("tr", {}, el("td", {}, lab));
+    yrs.forEach((_, i) => {
+      const v = vals[i], a = marks.get(k + ":" + i);
+      const td = el("td", { class: a ? "anom" + (a.sev === "high" ? "" : " mid") : "", style: !a && isNum(v) && v < 0 ? "color: var(--bad)" : "" }, fmt(v));
+      if (a) { td.title = `${a.kind}: ${anomText(a)}\n가능한 원인: ${a.why.slice(0, 2).join(", ")}`; td.tabIndex = 0; td.addEventListener("click", () => openAsk(anomQuestion(a), true)); }
+      tr.append(td);
+    });
+    body.append(tr);
+  });
+  if (f.balanceAsOf && yrs.length) body.append(el("tr", {}, el("td", { colspan: String(yrs.length + 1), class: "muted", style: "font-family:var(--font-body);font-size:0.76rem;text-align:left" },
+    `최신 대차대조표(${f.balanceAsOf}): 자산 ${fmt(f.totalAssets)} · 부채 ${fmt(f.totalLiabilities)} · 자본 ${fmt(f.equity)} · 현금 ${fmt(f.cash)} · 단기차입금 ${fmt(f.shortDebt)}억원. 색칠된 칸을 누르면 Claude에게 이유를 묻습니다.`)));
+  t.append(body);
+}
+
+// ── 차트 다시 그리기 (탭 전환·창 크기 변경 시) ─────────────────────────────
+function drawCharts() {
+  const d = current, f = d.financials || {}, yrs = f.years || [], rs = ratioSeries(f);
+  const mk = (keys) => (d.anomalies || []).filter(x => !x.pair).flatMap(x => keys.map((k, si) => k === x.k ? { si, i: x.i } : null)).filter(Boolean);
+  document.getElementById("finUnit").textContent = "단위: " + (f.unit || "억원");
+  drawPrice(d.price || {});
+  drawSeriesChart(document.getElementById("finChart"), { labels: yrs, title: "매출액과 영업이익", series: [
+    { name: "매출액", values: f.revenue || [], color: "var(--accent)", type: "bar" },
+    { name: "영업이익", values: f.operatingIncome || [], color: "var(--series-2)", type: "bar" }], marks: mk(["revenue", "operatingIncome"]) });
+  drawSeriesChart(document.getElementById("flowChart"), { labels: yrs, title: "이익과 현금흐름", series: [
+    { name: "영업이익", values: f.operatingIncome || [], color: "var(--series-2)" },
+    { name: "순이익", values: f.netIncome || [], color: "var(--accent)" },
+    { name: "영업현금흐름", values: f.ocf || [], color: "var(--series-3)" }], marks: mk(["operatingIncome", "netIncome", "ocf"]) });
+  drawSeriesChart(document.getElementById("cashChart"), { labels: yrs, title: "현금과 단기차입금", empty: "연도별 대차대조표가 없습니다. 같은 기업을 다시 수집 요청하면 채워집니다.", series: [
+    { name: "현금성자산", values: f.cashHist || [], color: "var(--accent)", type: "bar" },
+    { name: "단기차입금", values: f.shortDebtHist || [], color: "var(--series-3)", type: "bar" }], marks: mk(["cashHist", "shortDebtHist"]) });
+  drawSeriesChart(document.getElementById("debtChart"), { labels: yrs, title: "부채비율", fmt: v => fmt(v, 0) + "%", empty: "연도별 대차대조표가 없습니다. 같은 기업을 다시 수집 요청하면 채워집니다.",
+    series: [{ name: "부채비율", values: rs.debt, color: "var(--accent)" }], thresholds: [{ v: 150, label: "150%", cls: "warn" }, { v: 250, label: "250%", cls: "bad" }] });
+  drawSeriesChart(document.getElementById("lossChart"), { labels: yrs, title: "법차손 / 자기자본", fmt: v => fmt(v, 0) + "%", height: 180,
+    series: [{ name: "법차손/자기자본", values: rs.loss, color: "var(--series-3)" }], thresholds: [{ v: 50, label: "50% 요건", cls: "bad" }, { v: 40, label: "40% 주의", cls: "warn" }] });
+  drawPeerChart(d);
+}
+
+function drawPeerChart(d) {
+  const box = document.getElementById("peerChart"); box.replaceChildren();
+  const rows = [{ name: d.company?.name || "분석 대상", v: d.valuation?.pbr, self: true }, ...(d.peers || []).map(p => ({ name: p.name, v: p.pbr }))].filter(r => isNum(r.v));
+  if (rows.length < 2) { box.append(el("p", { class: "muted", style: "font-size:0.85rem" }, "비교할 PBR이 없습니다.")); return; }
+  const med = median((d.peers || []).map(p => p.pbr)), W = Math.max(300, box.clientWidth || 520), rowH = 26, L = 120, R = 50, H = rows.length * rowH + 16;
+  const max = Math.max(...rows.map(r => r.v), med || 0) * 1.05, x = v => L + (W - L - R) * v / max;
+  const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, width: "100%", role: "img", "aria-label": "PBR 비교" });
+  rows.forEach((r, i) => {
+    const yy = 8 + i * rowH;
+    const nm = svgEl("text", { x: L - 8, y: yy + 15, "text-anchor": "end", style: r.self ? "fill: var(--fg); font-weight:600" : "" }); nm.textContent = r.name.length > 9 ? r.name.slice(0, 9) + "…" : r.name; svg.append(nm);
+    svg.append(svgEl("rect", { x: L, y: yy + 4, width: Math.max(1, x(r.v) - L), height: rowH - 10, rx: 3, fill: r.self ? "var(--accent)" : "var(--series-2)", "fill-opacity": r.self ? 1 : 0.55 }));
+    const vt = svgEl("text", { x: x(r.v) + 6, y: yy + 15 }); vt.textContent = fmt(r.v, 1) + "x"; svg.append(vt);
+  });
+  if (isNum(med)) { svg.append(svgEl("line", { x1: x(med), x2: x(med), y1: 2, y2: H - 4, stroke: "var(--warn)", "stroke-dasharray": "4 3", "stroke-width": 1.5 })); }
+  box.append(svg);
+}
+
+// ── 탭 ───────────────────────────────────────────────────────────────────
+const TABS = [["overview", "개요"], ["finance", "재무"], ["mezz", "메자닌·주가"], ["qual", "정성평가"], ["compare", "비교"], ["sim", "시뮬레이터"]];
+let activeTab = "overview";
+(function buildTabs() {
+  const nav = document.getElementById("tabs");
+  TABS.forEach(([id, label]) => {
+    const b = el("button", { type: "button", class: "tab", role: "tab", id: "tabbtn-" + id, "aria-controls": "tab-" + id, "aria-selected": "false" }, label, el("span", { class: "badge", id: "badge-" + id }));
+    b.addEventListener("click", () => showTab(id, true));
+    nav.append(b);
+  });
+})();
+function showTab(id, user) {
+  if (!TABS.some(t => t[0] === id)) id = "overview";
+  activeTab = id;
+  TABS.forEach(([t]) => { document.getElementById("tab-" + t).hidden = t !== id; document.getElementById("tabbtn-" + t).setAttribute("aria-selected", String(t === id)); });
+  if (user) { try { history.replaceState(null, "", "#" + id); } catch {} window.scrollTo({ top: 0 }); }
+  drawCharts();
+}
+
+function renderHeader(d, total, v, qualRisk) {
+  const box = document.getElementById("hdrCo"); box.replaceChildren();
+  if (d.company?.name) box.append(el("b", {}, d.company.name), el("span", { class: "hdr-score" }, total == null ? "—" : total + "점"), el("span", { class: "pill " + (qualRisk && v.cls === "ok" ? "warn" : v.cls) }, v.text.split(" · ")[0]));
+  const high = (d.anomalies || []).filter(x => x.sev === "high").length;
+  document.getElementById("badge-finance").textContent = high ? String(high) : "";
+  document.getElementById("badge-qual").textContent = qualRisk ? String(qualRisk) : "";
+}
+
+// ── Claude에게 질문 (페이지가 대화를 들고 있고, 매번 기업 데이터를 함께 보낸다) ──────
+const askState = { key: null, turns: [], ctl: null, busy: false };
+const companyKey = d => d.isExample ? "example" : (d.company?.corpCode || d.company?.ticker || d.company?.name || "");
+const askEls = { drawer: document.getElementById("askDrawer"), msgs: document.getElementById("askMsgs"), input: document.getElementById("askInput"),
+  send: document.getElementById("askSend"), stop: document.getElementById("askStop"), ctx: document.getElementById("askCtx"), sug: document.getElementById("askSuggest") };
+function resetAsk(d) {
+  askState.key = companyKey(d); askState.turns = []; askEls.msgs.replaceChildren();
+  askEls.ctx.textContent = d.isExample ? "예시 기업 데이터입니다. 실제 기업을 검색한 뒤 물어보면 그 기업 데이터를 근거로 답합니다." : `${d.company?.name || "이 기업"}의 재무·메자닌·주가·공시 데이터를 근거로 답합니다.`;
+  askEls.sug.replaceChildren();
+  const sug = [
+    (d.anomalies || [])[0] ? anomQuestion(d.anomalies[0]) : null,
+    "이 회사에 메자닌 투자할 때 가장 큰 리스크 3가지와 조건으로 보완할 방법은?",
+    "현금 소진 속도와 기존 메자닌 풋 일정을 같이 보면 상환 여력이 충분해?",
+    "관리종목 지정 가능성은 어느 정도야?",
+  ].filter(Boolean);
+  sug.forEach(q => { const b = el("button", { type: "button", class: "chip" }, q.length > 34 ? q.slice(0, 34) + "…" : q); b.title = q; b.addEventListener("click", () => sendAsk(q)); askEls.sug.append(b); });
+}
+function openAsk(q, autoSend) {
+  askEls.drawer.hidden = false;
+  if (q && autoSend) sendAsk(q); else { if (q) askEls.input.value = q; askEls.input.focus(); }
+}
+function askContext(d) {
+  const f = d.financials || {}, rs = ratioSeries(f);
+  const r1 = a => Array.isArray(a) ? a.map(v => isNum(v) ? Math.round(v * 10) / 10 : null) : a;
+  return {
+    company: { name: d.company?.name, ticker: d.company?.ticker, market: d.company?.market, sector: d.company?.sector },
+    financials_억원: { years: f.years, fsDiv: f.fsDiv, revenue: f.revenue, operatingIncome: f.operatingIncome, pretaxIncome: f.pretaxIncome, netIncome: f.netIncome, ocf: f.ocf,
+      totalAssets: f.totalAssetsHist, liabilities: f.liabilitiesHist, equity: f.equityHist, cash: f.cashHist, shortDebt: f.shortDebtHist, interestExpense: f.interestExpense,
+      latestBalance: { asOf: f.balanceAsOf, cash: f.cash, shortDebt: f.shortDebt, totalDebt: f.totalDebt, liabilities: f.totalLiabilities, equity: f.equity } },
+    ratios_pct: { debt: r1(rs.debt), cashCover: r1(rs.cashCover), opMargin: r1(rs.opMargin), pretaxLossToEquity: r1(rs.loss), revenueGrowth: r1(rs.revGrowth) },
+    anomalies: (d.anomalies || []).map(x => `${x.year} ${x.label} ${x.kind}: ${anomText(x)}`),
+    price: d.price && { asOf: d.price.asOf, current: d.price.current, high52: d.price.high52, low52: d.price.low52, marketCap_억원: d.price.marketCap, avgDailyValue_억원: d.price.avgDailyValue, volatility_pct: d.price.volatility },
+    valuation: d.valuation, peers: (d.peers || []).map(p => ({ name: p.name, pbr: p.pbr, per: p.per, opMargin: p.opMargin })),
+    mezzanine: { issued: d.mezzanine?.issued || d.mezzanine?.outstanding, majorShareholderPct: d.mezzanine?.majorShareholderPct, majorShareholder: d.dart?.mezzanine?.majorShareholder },
+    credit: d.dart?.credit?.ratings || "등급 없음", audit: d.dart?.audit?.rows?.[0], scores: Object.fromEntries(Object.entries(d.scores || {}).map(([k, v]) => [k, v?.score])),
+    qual: d.qual && { summary: d.qual.summary, items: (d.qual.items || []).map(x => `${x.key}:${x.status} ${x.finding || ""}`) },
+    disclosures: (d.dart?.disclosures || []).slice(0, 80).map(x => `${x.d} ${x.t}`),
+  };
+}
+function addMsg(role, text) { const m = el("div", { class: "msg " + role }, text); askEls.msgs.append(m); askEls.msgs.scrollTop = askEls.msgs.scrollHeight; return m; }
+async function sendAsk(text) {
+  text = String(text || "").trim(); if (!text || askState.busy) return;
+  askEls.drawer.hidden = false;
+  const d = current; if (askState.key !== companyKey(d)) resetAsk(d);
+  addMsg("user", text); askEls.input.value = "";
+  const bubble = addMsg("ai pending", "생각하는 중…");
+  const sample = await samplePromise;
+  if (!sample) { bubble.textContent = "이 화면에서는 Claude에게 물어볼 수 없습니다. claude.ai에서 열어 주세요."; bubble.className = "msg ai"; return; }
+  const rules = `당신은 한국 메자닌(CB·BW·EB) 투자 심사를 돕는 재무 분석가입니다. 아래 기업 데이터를 근거로 사용자의 질문에 한국어로 답하세요.
+- 숫자는 데이터에 있는 값을 인용하고, 재무 숫자가 튄 이유는 가능성이 높은 원인부터 2~4개 제시하고 각각 어떤 공시·주석에서 확인할 수 있는지 함께 적으세요.
+- 데이터에 없는 사실은 "(데이터 밖 정보, 확인 필요)"로 구분하세요.
+- 12줄 이내, 목록은 "- "로 시작. 굵게(**)·표·제목 기호는 쓰지 마세요.
+기업 데이터(금액 억원): ${JSON.stringify(askContext(d))}`;
+  askState.turns.push({ role: "user", content: text });
+  const input = [{ role: "user", content: rules }, ...askState.turns.slice(-10)];
+  askState.busy = true; askState.ctl = new AbortController(); askEls.send.disabled = true; askEls.stop.hidden = false;
+  try {
+    const { text: ans } = await sample(input, { signal: askState.ctl.signal, cache: false, onText: ({ text: t }) => { bubble.className = "msg ai"; bubble.textContent = t; askEls.msgs.scrollTop = askEls.msgs.scrollHeight; } });
+    bubble.className = "msg ai"; bubble.textContent = ans;
+    askState.turns.push({ role: "assistant", content: ans });
+  } catch (e) {
+    bubble.className = "msg ai";
+    bubble.textContent = (e?.text ? e.text + "\n\n" : "") + (ERR[e?.code] || "답을 받지 못했습니다. 다시 보내 주세요.");
+    askState.turns.pop();
+  } finally {
+    askState.busy = false; askEls.send.disabled = false; askEls.stop.hidden = true;
+  }
+}
+document.getElementById("askFab").addEventListener("click", () => openAsk());
+document.getElementById("askClose").addEventListener("click", () => { askEls.drawer.hidden = true; });
+document.getElementById("askForm").addEventListener("submit", e => { e.preventDefault(); sendAsk(askEls.input.value); });
+askEls.input.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); sendAsk(askEls.input.value); } });
+askEls.stop.addEventListener("click", () => askState.ctl?.abort());
+document.getElementById("askReset").addEventListener("click", () => resetAsk(current));
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !askEls.drawer.hidden) askEls.drawer.hidden = true; });
 
 // ── 데이터 출처 표시 ────────────────────────────────────────────────────
 const SRC_IDS = { price: ["src-price"], fin: ["src-finchart", "src-fin", "src-ratio"], peer: ["src-peer"], mezz: ["src-mezz"], risk: ["src-risk"],
@@ -1045,7 +1656,7 @@ document.getElementById("searchForm").addEventListener("submit", async e => {
   }
   pendingQuery = name;
   dartBtn.hidden = false; estBtn.hidden = false;
-  setStatus(`"${name}"은(는) 아직 DART 데이터가 없습니다. DART에서 가져오거나 Claude 추정으로 볼 수 있습니다.`);
+  setStatus(`"${name}"은(는) 아직 DART 데이터가 없습니다. 'DART 수집 요청'을 누르면 1시간 안에 자동으로 받아 오고, 기다리기 싫으면 Claude 추정으로 바로 볼 수 있습니다.`);
 });
 
 let pendingQuery = "";
@@ -1074,7 +1685,7 @@ dartBtn.addEventListener("click", async () => {
     return;
   }
   dartBtn.hidden = true;
-  setStatus(`"${q}" 수집 요청을 저장했습니다. Claude Code 세션에서 "대기 중인 DART 요청 처리해"라고 하면 받아 옵니다. 이 창을 열어 두면 끝나는 대로 화면이 바뀝니다.`);
+  setStatus(`"${q}" 수집 요청을 저장했습니다. 매시 정각(오전 7시~밤 11시)에 자동으로 DART에서 받아 옵니다. 이 창을 열어 두면 끝나는 대로 화면이 바뀝니다.`);
   const unsub = db.doc("results/" + reqId).onSnapshot(async snap => {
     if (!snap.exists) return;
     unsub(); dartBtn.disabled = false;
@@ -1100,6 +1711,7 @@ enrichBtn.addEventListener("click", async () => {
 });
 stopBtn.addEventListener("click", () => ctl?.abort());
 
-let rT; window.addEventListener("resize", () => { clearTimeout(rT); rT = setTimeout(() => { drawPrice(current.price || {}); drawFin(current.financials || {}); }, 150); });
+let rT; window.addEventListener("resize", () => { clearTimeout(rT); rT = setTimeout(drawCharts, 150); });
 render(EXAMPLE);
+showTab((location.hash || "").slice(1) || "overview");
 </script>

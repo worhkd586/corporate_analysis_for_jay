@@ -183,22 +183,30 @@ def financials(corp):
     for y in range(latest - 4, latest + 1):
         raw.append(latest_items if y == latest else statements(corp, y, "11011")[0])
         years.append(str(y))
-    # 사업보고서가 없는 해(상장 전 등)는 다음 해 보고서의 전기(frmtrm) 금액으로 채운다
-    for i, items in enumerate(raw):
-        if items:
-            rows.append(extract(items))
-        elif i + 1 < len(raw) and raw[i + 1]:
-            rows.append(extract(raw[i + 1], "frmtrm_amount"))
-        else:
-            rows.append({})
+    # 사업보고서 데이터가 없는 해(상장 전 등)는 다음 해 보고서의 전기, 그다음 해 보고서의 전전기 금액으로 채운다
+    def source(i):
+        if raw[i]:
+            return raw[i], "thstrm_amount"
+        if i + 1 < len(raw) and raw[i + 1]:
+            return raw[i + 1], "frmtrm_amount"
+        if i + 2 < len(raw) and raw[i + 2]:
+            return raw[i + 2], "bfefrmtrm_amount"
+        return [], None
+    for i in range(len(raw)):
+        items, col = source(i)
+        rows.append(extract(items, col) if items else {})
     series = lambda k: [eok(r.get(k)) for r in rows]
     f = {"unit": "억원", "fsDiv": "연결" if fs_div == "CFS" else "별도", "years": years,
          "revenue": series("revenue"), "operatingIncome": series("operatingIncome"),
          "netIncome": series("netIncome"), "ocf": series("ocf"),
          # 법차손(법인세비용차감전손실) / 자기자본 비율 점검용
-         "pretaxIncome": series("pretaxIncome"), "equityHist": series("equity")}
+         "pretaxIncome": series("pretaxIncome"), "equityHist": series("equity"),
+         # 연도별 대차대조표 (추이 차트·이상 신호용)
+         "totalAssetsHist": series("totalAssets"), "liabilitiesHist": series("totalLiabilities"),
+         "cashHist": series("cash"), "shortDebtHist": series("shortDebt")}
     last = rows[-1]
     bs_src = f"{latest} 사업보고서"
+    interim, interim_label = None, None
     # 대차대조표 항목은 사업보고서 이후의 가장 최근 분기보고서로 갱신 (상환능력은 최신 잔액이 중요)
     for code, label in REPORTS[1:]:
         items, _ = statements(corp, latest + 1, code)
@@ -206,12 +214,82 @@ def financials(corp):
             last = {**last, **{k: v for k, v in extract(items).items()
                                if k in ("totalAssets", "totalLiabilities", "equity", "cash", "shortDebt", "totalDebt") and v is not None}}
             bs_src = f"{latest + 1} {label}"
+            interim, interim_label = items, f"{latest + 1} {label.replace('보고서', '')}"
             break
     for k in ("totalAssets", "totalLiabilities", "equity", "cash", "shortDebt", "totalDebt"):
         f[k] = eok(last.get(k))
     f["interestExpense"] = eok(rows[-1].get("interestExpense"))
     f["balanceAsOf"] = bs_src
+    f["statements"] = full_statements([source(i) for i in range(len(raw))], years, interim, interim_label)
     return f
+
+
+# 연도마다 이름만 조금 다른 같은 계정을 한 줄로 합친다: "영업이익(손실)"="영업이익", "금융원가"="금융비용", "영업수익"="매출액"
+ACCOUNT_ALIASES = [(r"^(수익\(매출액\)|영업수익|매출)$", "매출액"), (r"^금융원가$", "금융비용"), (r"^영업비용$", "매출원가"),
+                   (r"^지분법(이익|손익|손실)$", "지분법손익"), (r"^기타(영업외)?(수익|이익)$", "기타수익"), (r"^기타(영업외)?(비용|손실)$", "기타비용")]
+
+
+def canon_account(nm):
+    base = re.sub(r"\s+", "", nm)
+    base = re.sub(r"\((손실|이익|손익)\)$", "", base)          # 영업이익(손실) → 영업이익
+    base = re.sub(r"^(당기순|분기순|반기순)", "당기순", base)
+    for rx, to in ACCOUNT_ALIASES:
+        if re.search(rx, base):
+            return to
+    return base
+
+
+# 손익계산서는 DART 응답 순서가 표시 순서가 아니어서 일반적인 손익 흐름 순서로 다시 놓는다
+IS_ORDER = [r"^(매출액|수익\(매출액\)|영업수익|매출)$", r"매출원가|영업비용", r"매출총", r"판매비", r"^영업이익|^영업손", r"기타수익|기타영업외수익",
+            r"기타비용|기타영업외비용", r"금융수익", r"금융(비용|원가)", r"지분법", r"법인세(비용)?차감전", r"^법인세", r"계속영업", r"중단영업",
+            r"^당기순", r"기타포괄", r"총포괄", r"지배기업|지배주주", r"비지배", r"주당"]
+
+
+def full_statements(sources, years, interim, interim_label):
+    """재무상태표·손익계산서·현금흐름표 전체 계정 (억원). 대시보드의 '재무제표 상세'용.
+
+    sources: 연도별 (보고서 항목, 금액 열). 같은 이름의 계정은 연도가 달라도 한 줄로 합친다
+    (보고서마다 account_id가 바뀌는 경우가 있어서). 한 보고서 안에 같은 이름이 또 나오면 #2, #3으로 구분한다.
+    interim: 최근 분기·반기 보고서 항목 (손익은 누적 금액).
+    """
+    cols = list(years) + ([interim_label] if interim else [])
+    latest = next((items for items, _ in reversed(sources) if items), [])
+    is_sj = ("IS",) if any(it.get("sj_div") == "IS" for it in latest) else ("CIS",)
+    out = {"columns": cols}
+
+    def keyed(items, sjs):
+        seen = {}
+        for it in items:
+            if it.get("sj_div") not in sjs:
+                continue
+            nm = (it.get("account_nm") or "").strip()
+            base = canon_account(nm)
+            seen[base] = seen.get(base, 0) + 1
+            yield (base if seen[base] == 1 else f"{base}#{seen[base]}"), nm, it
+
+    for key, sjs in (("BS", ("BS",)), ("IS", is_sj), ("CF", ("CF",))):
+        rows = {}
+        def put(items, col, ci, cum=False):
+            for k, nm, it in keyed(items, sjs):
+                amt = (it.get("thstrm_add_amount") or it.get(col)) if cum else it.get(col)
+                r = rows.setdefault(k, {"n": nm, "v": [None] * len(cols)})
+                if r["v"][ci] is None:
+                    r["v"][ci] = eok(num(amt))
+        for ci, (items, col) in enumerate(sources):
+            if items:
+                put(items, col, ci)
+        if interim:
+            put(interim, "thstrm_amount", len(cols) - 1, cum=key == "IS")
+        pos = {k: i for i, (k, _, _) in enumerate(keyed(latest, sjs))}
+        def rank(k):
+            p = pos.get(k, 10000)
+            if key != "IS":
+                return (0, p)   # 재무상태표·현금흐름표는 DART 순서(합계 → 소계 → 세부)를 그대로 쓴다
+            name = rows[k]["n"].replace(" ", "")
+            g = next((i for i, rx in enumerate(IS_ORDER) if re.search(rx, name)), len(IS_ORDER))
+            return (g, p)
+        out[key] = [rows[k] for k in sorted(rows, key=rank) if any(v is not None for v in rows[k]["v"])]
+    return out
 
 
 def kdate(s):
@@ -379,6 +457,40 @@ def peers(code, n=5):
         return None
 
 
+KIS = "https://www.kisrating.com"
+
+
+def kis_post(path, data):
+    req = urllib.request.Request(KIS + path, data=urllib.parse.urlencode(data).encode(), headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        return r.read().decode("utf-8", "replace")
+
+
+def credit_rating(name):
+    """한국신용평가(KIS) 공개 등급. 등급이 없으면 None (대시보드에서 공란)."""
+    q = norm(name)
+    kw = re.sub(r"\s|\(주\)|㈜|주식회사", "", name or "")  # KIS 검색은 대소문자를 구분한다 (SK하이닉스)
+    try:
+        d = json.loads(kis_post("/ratingsSearch/corp_presearch.json",
+                                {"mainSearchType": 1, "keyword": kw, "searchKeyword": kw, "searchYn": "M", "searchType": 1}))
+        cands = d.get("dataList1") or []
+        hit = {"kiscd": d.get("kiscd"), "upcheOpt": d.get("upcheOpt")} if d.get("isRedirect") else \
+            next((c for c in cands if norm(c.get("upcheOpt")) == q), None)
+        if not hit or not hit.get("kiscd"):
+            return None
+        page = kis_post("/ratingsSearch/corp_overview.do", {"kiscd": hit["kiscd"]})
+        text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", re.sub(r"<script.*?</script>|<style.*?</style>", "", page, flags=re.S)))
+        # 예: "회사채(선순위) 등급 BBB Outlook/Watchlist 부정적 평가일 2026.06.29", "기업어음 등급 A1 Watchlist 평가일 2026.06.12"
+        ratings = [{"type": re.sub(r"^평가의견\s+\S+\s+", "", t.strip()), "grade": g, "outlook": o or None, "date": dt_.replace(".", "-")}
+                   for t, g, o, dt_ in re.findall(r"([가-힣A-Za-z()·/ ]{2,20}?)\s*등급\s+(\S+)\s+(?:Outlook/)?Watchlist\s*(\S*?)\s*평가일\s+([\d.]{10})", text)]
+        if not ratings:
+            return None
+        return {"source": "한국신용평가", "kiscd": hit["kiscd"], "name": hit.get("upcheOpt"), "ratings": ratings}
+    except Exception as e:
+        print(f"  신용등급 조회 실패: {e}")
+        return None
+
+
 def disclosures(corp):
     """최근 2년 공시 목록 (정성평가 근거). 제목·접수일·접수번호만 남긴다."""
     end = dt.date.today()
@@ -424,6 +536,7 @@ def build(c):
         "sharesOutstanding": n_shares,
         "price": price(c["stock_code"], n_shares),
         "peers": peers(c["stock_code"]),
+        "credit": credit_rating(info.get("corp_name") or c["name"]),
         "mezzanine": {"issued": mz, **sh},
         "audit": audit(c["corp_code"], year - 1),
         "disclosures": disclosures(c["corp_code"]),
@@ -521,7 +634,8 @@ def main(argv):
               f"| BS {f.get('balanceAsOf','-')} | 메자닌 {len(data['mezzanine']['issued'])}건 | 최대주주 {data['mezzanine'].get('majorShareholderPct')}% "
               f"| 공시 {len(data['disclosures'])}건 | 감사 {'있음' if data['audit'] else '없음'} "
               f"| 주가 {(data['price'] or {}).get('current', '없음')} ({(data['price'] or {}).get('asOf', '-')}) "
-              f"| 경쟁사 {len((data['peers'] or {}).get('list', []))}곳")
+              f"| 경쟁사 {len((data['peers'] or {}).get('list', []))}곳 "
+              f"| 신용등급 {', '.join(r['type'] + ' ' + r['grade'] for r in (data['credit'] or {}).get('ratings', [])) or '없음'}")
     with open(os.path.join(up, "writes.json"), "w") as fh:
         json.dump(writes, fh, ensure_ascii=False, indent=1)
     print(f"업로드 목록: {os.path.join(up, 'writes.json')} ({len(writes)}건)")
