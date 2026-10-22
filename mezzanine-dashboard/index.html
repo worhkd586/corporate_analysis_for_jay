@@ -892,51 +892,70 @@ function ruleScores(f) {
   return r;
 }
 
+// 주가가 있으면 시가총액·PER·PBR·PSR·오버행을 직접 계산 (Claude 호출 없음)
+function priceDerived(f, m, p, sh) {
+  const mcap = isNum(p?.current) && isNum(sh) ? p.current * sh / EOK : (isNum(p?.marketCap) ? p.marketCap : null);
+  const issued = (m.issued || []).reduce((s, x) => s + (x.amount || 0), 0);
+  return {
+    marketCap: mcap == null ? null : Math.round(mcap),
+    valuation: { per: mcap && last(f.netIncome) > 0 ? mcap / last(f.netIncome) : null, pbr: mcap && f.equity > 0 ? mcap / f.equity : null,
+                 psr: mcap && last(f.revenue) > 0 ? mcap / last(f.revenue) : null, evEbitda: null },
+    overhangPct: mcap && issued ? issued / mcap * 100 : null,
+  };
+}
+
 function dartToView(doc) {
   const f = doc.financials || {}, m = doc.mezzanine || {};
+  const p = { ...(doc.price || {}) }, pd = priceDerived(f, m, p, doc.sharesOutstanding);
+  if (pd.marketCap != null) p.marketCap = pd.marketCap;
+  const hasPrice = isNum(p.current);
   return {
     isExample: false, dart: doc,
     company: { ...doc.company, sector: doc.company?.indutyCode ? "업종코드 " + doc.company.indutyCode : "", asOf: f.balanceAsOf },
-    summary: "DART 공시 데이터를 불러왔습니다. 주가·경쟁사·정성 평가는 'Claude로 채우기'를 누르면 추가됩니다.",
-    price: {}, financials: f, valuation: {}, peers: [],
-    mezzanine: { issued: m.issued || [], majorShareholderPct: m.majorShareholderPct, note: m.majorShareholder ? "최대주주 " + m.majorShareholder : "" },
+    summary: "DART 공시" + (hasPrice ? "와 네이버 시세" : "") + " 데이터를 불러왔습니다. 경쟁사 비교와 나머지 점수는 'Claude로 채우기', 특이사항은 'Claude 정성평가 실행'을 누르면 추가됩니다.",
+    price: p, financials: f, valuation: pd.valuation, peers: [],
+    mezzanine: { issued: m.issued || [], majorShareholderPct: m.majorShareholderPct, overhangPct: pd.overhangPct, note: m.majorShareholder ? "최대주주 " + m.majorShareholder : "" },
     scores: ruleScores(f), risks: [],
-    sources: { fin: "DART · " + [f.fsDiv, f.balanceAsOf].filter(Boolean).join(" · "), mezz: "DART 발행결정 공시", price: "", peer: "", risk: "",
+    sources: { fin: "DART · " + [f.fsDiv, f.balanceAsOf].filter(Boolean).join(" · "), mezz: "DART 발행결정 공시",
+               price: hasPrice ? "네이버 시세 · " + (p.asOf || "") + " 종가" : "", peer: hasPrice ? "PER·PBR: DART+시세" : "", risk: "",
                listing: "DART 재무 자동 계산", disc: "DART 공시목록" + (doc.fetchedAt ? " · " + doc.fetchedAt.slice(0, 10) + " 수집" : ""), qual: "" },
   };
 }
 
-// DART 데이터는 다시 보내지 않고, 빠진 항목만 짧게 받는다 (토큰 절약)
+// DART·시세 데이터는 다시 받지 않고, 빠진 항목만 짧게 받는다 (토큰 절약)
 function buildLitePrompt(v) {
-  const f = v.financials;
+  const f = v.financials, p = v.price || {}, hasPrice = isNum(p.current);
   const brief = { company: v.company.name, ticker: v.company.ticker, market: v.company.market, years: f.years,
     revenue: f.revenue, operatingIncome: f.operatingIncome, netIncome: f.netIncome,
     bs: { asOf: f.balanceAsOf, liabilities: f.totalLiabilities, equity: f.equity, cash: f.cash, shortDebt: f.shortDebt },
-    mezzIssued: v.mezzanine.issued.map(x => [x.type, x.decided, x.amount, x.conversionPrice]),
-    majorShareholderPct: v.mezzanine.majorShareholderPct };
-  return `한국 메자닌(CB·BW·EB) 심사역으로서, 아래 DART 공시 데이터(억원)를 가진 기업의 빠진 정보만 채우세요. 재무 숫자는 반복하지 마세요.
-모르는 값은 null, 추정이면 reason에 "추정"이라고 쓰고, 주가 기준 시점을 asOf에 적으세요. 금액은 억원, 주가는 원.
-DART: ${JSON.stringify(brief)}
+    mezzIssued: v.mezzanine.issued.map(x => [x.type, x.decided, x.amount, x.conversionPrice, x.refixFloor]),
+    majorShareholderPct: v.mezzanine.majorShareholderPct,
+    price: hasPrice ? { asOf: p.asOf, current: p.current, high52: p.high52, low52: p.low52, avgDailyValue: p.avgDailyValue, volatility: p.volatility, marketCap: p.marketCap } : null,
+    valuation: v.valuation };
+  const priceField = hasPrice ? "" : `"asOf":"","price":{"current":0,"high52":0,"low52":0,"avgDailyValue":0,"volatility":0,"series":[{"m":"YYYY-MM","p":0}]},`;
+  return `한국 메자닌(CB·BW·EB) 심사역으로서, 아래 데이터(금액 억원, 주가 원)를 가진 기업의 빠진 정보만 채우세요. 주어진 숫자는 반복하지 마세요.
+${hasPrice ? "주가는 실제 시세가 주어졌으니 그대로 쓰고 다시 추정하지 마세요." : "주가는 추정이므로 기준 시점을 asOf에 적으세요."} 모르는 값은 null, 추정이면 reason에 "추정"이라고 쓰세요.
+데이터: ${JSON.stringify(brief)}
 JSON 하나만 반환:
-{"asOf":"","sector":"","price":{"current":0,"high52":0,"low52":0,"avgDailyValue":0,"volatility":0,"series":[{"m":"YYYY-MM","p":0}]},"evEbitda":null,"peers":[{"name":"","marketCap":0,"per":0,"pbr":0,"evEbitda":0,"opMargin":0,"revenueGrowth":0}],"pledgedPct":null,"summary":"","scores":{"conversion":{"score":0,"reason":""},"overhang":{"score":0,"reason":""},"governance":{"score":0,"reason":""},"business":{"score":0,"reason":""},"valuation":{"score":0,"reason":""}},"risks":[{"level":"high|mid|low","text":""}]}
-series: 최근 24개월 월말 종가. peers: 국내 상장 경쟁사 3개. summary: 메자닌 관점 결론 2문장. score: 1~5.`;
+{${priceField}"sector":"","evEbitda":null,"peers":[{"name":"","marketCap":0,"per":0,"pbr":0,"evEbitda":0,"opMargin":0,"revenueGrowth":0}],"pledgedPct":null,"summary":"","scores":{"conversion":{"score":0,"reason":""},"overhang":{"score":0,"reason":""},"governance":{"score":0,"reason":""},"business":{"score":0,"reason":""},"valuation":{"score":0,"reason":""}},"risks":[{"level":"high|mid|low","text":""}]}
+peers: 국내 상장 경쟁사 3개. summary: 메자닌 관점 결론 2문장. score: 1~5.`;
 }
 
 function mergeLite(v, a) {
-  const f = v.financials, p = { ...(a.price || {}) }, sh = v.dart.sharesOutstanding;
-  const mcap = isNum(p.current) && isNum(sh) ? p.current * sh / EOK : null;
-  if (mcap != null) p.marketCap = Math.round(mcap);
-  const issued = v.mezzanine.issued.reduce((s, x) => s + (x.amount || 0), 0);
+  const f = v.financials, real = isNum(v.price?.current);
+  const p = real ? { ...v.price } : { ...(a.price || {}) };
+  const pd = priceDerived(f, v.mezzanine, p, v.dart.sharesOutstanding);
+  if (pd.marketCap != null) p.marketCap = pd.marketCap;
   return {
     ...v,
     company: { ...v.company, sector: a.sector || v.company.sector, asOf: v.company.asOf },
     summary: a.summary || v.summary, price: p, peers: Array.isArray(a.peers) ? a.peers : [],
-    valuation: { per: mcap && last(f.netIncome) > 0 ? mcap / last(f.netIncome) : null, pbr: mcap && f.equity > 0 ? mcap / f.equity : null,
-                 psr: mcap && last(f.revenue) > 0 ? mcap / last(f.revenue) : null, evEbitda: isNum(a.evEbitda) ? a.evEbitda : null },
-    mezzanine: { ...v.mezzanine, pledgedPct: isNum(a.pledgedPct) ? a.pledgedPct : null, overhangPct: mcap && issued ? issued / mcap * 100 : null },
+    valuation: { ...pd.valuation, evEbitda: isNum(a.evEbitda) ? a.evEbitda : null },
+    mezzanine: { ...v.mezzanine, pledgedPct: isNum(a.pledgedPct) ? a.pledgedPct : null, overhangPct: pd.overhangPct },
     scores: { ...(a.scores || {}), ...ruleScores(f) },   // 상환능력·건전성은 항상 DART 계산값
     risks: Array.isArray(a.risks) ? a.risks : [],
-    sources: { ...v.sources, qual: v.sources?.qual || "", price: "Claude 추정" + (a.asOf ? " · " + a.asOf : ""), peer: "PER·PBR: DART+추정 주가 · 경쟁사: Claude 추정", risk: "Claude 추정" },
+    sources: { ...v.sources, qual: v.sources?.qual || "", price: real ? v.sources.price : "Claude 추정" + (a.asOf ? " · " + a.asOf : ""),
+               peer: (real ? "PER·PBR: DART+시세" : "PER·PBR: DART+추정 주가") + " · 경쟁사: Claude 추정", risk: "Claude 추정" },
   };
 }
 const EOK = 1e8;
