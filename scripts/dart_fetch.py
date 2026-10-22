@@ -3,6 +3,10 @@
 
 사용법:
     DART_API_KEY=... python3 scripts/dart_fetch.py [--request-id ID] "기업명 또는 종목코드" [...]
+    DART_API_KEY=... python3 scripts/dart_fetch.py --queue DIR
+    DART_API_KEY=... python3 scripts/dart_fetch.py --refresh-corp-codes   (상장사 목록 갱신)
+        DIR: ArtifactData list(out_dir=DIR)로 저장한 requests/, results/ 문서.
+             results가 없는 requests만 최대 10건 처리한다.
 
 출력:
     mezzanine-dashboard/data/<corp_code>.json   기업별 데이터
@@ -50,19 +54,27 @@ def get_json(path, **params):
     return data.get("list", []) if data.get("status") == "000" else []
 
 
-def corp_list():
-    os.makedirs(CACHE, exist_ok=True)
-    path = os.path.join(CACHE, "corpCode.xml")
-    fresh = os.path.exists(path) and (dt.datetime.now().timestamp() - os.path.getmtime(path) < 7 * 86400)
-    if not fresh:
-        with zipfile.ZipFile(io.BytesIO(get("corpCode.xml"))) as z:
-            with open(path, "wb") as f:
-                f.write(z.read(z.namelist()[0]))
+CORP_CODES = os.path.join(ROOT, "scripts", "corp_codes.json")
+
+
+def corp_list(refresh=False):
+    """상장사 목록 (corp_code, 이름, 종목코드).
+
+    DART corpCode.xml은 받는 데 4분 가까이 걸려서, 상장사만 추린 scripts/corp_codes.json을
+    레포에 두고 쓴다. 파일이 없거나 refresh=True면 새로 받아 그 파일을 갱신한다.
+    """
+    if not refresh and os.path.exists(CORP_CODES):
+        return json.load(open(CORP_CODES))
+    with zipfile.ZipFile(io.BytesIO(get("corpCode.xml"))) as z:
+        root = ET.fromstring(z.read(z.namelist()[0]))
     rows = []
-    for el in ET.parse(path).getroot().iter("list"):
+    for el in root.iter("list"):
         stock = (el.findtext("stock_code") or "").strip()
         if stock:  # 상장사만
             rows.append({"corp_code": el.findtext("corp_code"), "name": el.findtext("corp_name").strip(), "stock_code": stock})
+    rows.sort(key=lambda r: r["stock_code"])
+    with open(CORP_CODES, "w") as fh:
+        json.dump(rows, fh, ensure_ascii=False, separators=(",", ":"))
     return rows
 
 
@@ -164,10 +176,18 @@ def financials(corp):
             break
     else:
         return None
+    raw = []
     for y in range(latest - 4, latest + 1):
-        items = latest_items if y == latest else statements(corp, y, "11011")[0]
+        raw.append(latest_items if y == latest else statements(corp, y, "11011")[0])
         years.append(str(y))
-        rows.append(extract(items) if items else {})
+    # 사업보고서가 없는 해(상장 전 등)는 다음 해 보고서의 전기(frmtrm) 금액으로 채운다
+    for i, items in enumerate(raw):
+        if items:
+            rows.append(extract(items))
+        elif i + 1 < len(raw) and raw[i + 1]:
+            rows.append(extract(raw[i + 1], "frmtrm_amount"))
+        else:
+            rows.append({})
     series = lambda k: [eok(r.get(k)) for r in rows]
     f = {"unit": "억원", "fsDiv": "연결" if fs_div == "CFS" else "별도", "years": years,
          "revenue": series("revenue"), "operatingIncome": series("operatingIncome"),
@@ -189,6 +209,15 @@ def financials(corp):
     return f
 
 
+def kdate(s):
+    """'2030년 10월 02일', '2030-10-02', '20301002' → '2030-10-02' (일이 없으면 '2030-10')."""
+    m = re.search(r"(\d{4})\D{0,3}(\d{1,2})(?:\D{0,3}(\d{1,2}))?", s or "")
+    if not m:
+        return None
+    y, mo, d = m.groups()
+    return f"{y}-{int(mo):02d}" + (f"-{int(d):02d}" if d else "")
+
+
 def mezzanine(corp):
     end = dt.date.today()
     bgn = end.replace(year=end.year - 4)
@@ -201,12 +230,14 @@ def mezzanine(corp):
                 "round": (it.get("bd_tm") or "").strip() + "회차" if it.get("bd_tm") else "",
                 "amount": eok(num(it.get("bd_fta"))),
                 "conversionPrice": num(it.get(px)),
-                "refixFloor": num(it.get("act_mktprc_fl_cvprc_lwtrsprc")),
+                # 시가하락에 따른 최저 조정가액 (EB 공시에는 없음)
+                "refixFloor": num(it.get("act_mktprcfl_cvprc_lwtrsprc")),
+                "convStart": kdate(it.get("cvrqpd_bgd") or it.get("exrqpd_bgd") or it.get("expd_bgd")),
                 "coupon": num(it.get("bd_intr_ex")),
                 "ytm": num(it.get("bd_intr_sf")),
-                "maturity": (it.get("bd_mtd") or "")[:10] or None,
+                "maturity": kdate(it.get("bd_mtd")),
                 "putDate": None,
-                "decided": it.get("bddd") or it.get("rcept_no", "")[:8],
+                "decided": kdate(it.get("bddd") or (it.get("rcept_no") or "")[:8]),
                 "rceptNo": it.get("rcept_no"),
             })
     out.sort(key=lambda x: x.get("decided") or "", reverse=True)
@@ -269,10 +300,40 @@ def lookup_ids(text):
     return ids
 
 
+def load_docs(folder):
+    docs = {}
+    if not os.path.isdir(folder):
+        return docs
+    for name in os.listdir(folder):
+        if name.endswith(".json"):
+            body = json.load(open(os.path.join(folder, name)))
+            if isinstance(body.get("data"), dict):  # {id, data, version} 형태로 저장된 경우
+                body = body["data"]
+            docs[name[:-5]] = body
+    return docs
+
+
+def pending_requests(folder):
+    reqs = load_docs(os.path.join(folder, "requests"))
+    done = load_docs(os.path.join(folder, "results"))
+    todo = [(rid, r.get("query", "")) for rid, r in reqs.items() if rid not in done and r.get("query")]
+    return sorted(todo, key=lambda x: reqs[x[0]].get("at", ""))[:10]
+
+
 def main(argv):
-    req = None
-    if argv[:1] == ["--request-id"]:
-        req, argv = argv[1], argv[2:]
+    if argv[:1] == ["--refresh-corp-codes"]:
+        print(f"상장사 {len(corp_list(refresh=True))}곳 → {CORP_CODES}")
+        return
+    if argv[:1] == ["--queue"]:
+        todo = pending_requests(argv[1])
+        if not todo:
+            print("대기 중인 요청 없음")
+            return
+        jobs = todo
+    elif argv[:1] == ["--request-id"]:
+        jobs = [(argv[1], q) for q in argv[2:]]
+    else:
+        jobs = [(None, q) for q in argv]
     if not KEY:
         sys.exit("DART_API_KEY 환경 변수가 없습니다.")
     os.makedirs(OUT, exist_ok=True)
@@ -287,27 +348,35 @@ def main(argv):
         writes.append({"op": "set", "collection": collection, "doc_id": doc_id, "file_path": path})
 
     rows = corp_list()
-    result = {"status": "error", "message": "요청한 기업이 없습니다."}
-    for q in argv:
+    if not all(find_corp(q, rows)[0] for _, q in jobs):
+        rows = corp_list(refresh=True)  # 최근 상장사일 수 있으니 목록을 새로 받아 다시 찾는다
+    now = lambda: dt.datetime.now().isoformat(timespec="seconds")
+    for req, q in jobs:
         c, cands = find_corp(q, rows)
         if not c:
             msg = f"[{q}] DART 상장사 목록에서 찾지 못함" + (": 후보 " + ", ".join(f"{x['name']}({x['stock_code']})" for x in cands) if cands else "")
             print(msg)
-            result = {"status": "error", "message": msg, "candidates": cands}
+            if req:
+                add("results", req, {"status": "error", "message": msg, "candidates": cands, "at": now()})
             continue
-        data = build(c)
+        try:
+            data = build(c)
+        except Exception as e:  # 한 기업이 실패해도 나머지 요청은 처리
+            print(f"[{q}] 수집 실패: {e}")
+            if req:
+                add("results", req, {"status": "error", "message": f"DART 수집 실패: {e}", "at": now()})
+            continue
         with open(os.path.join(OUT, c["corp_code"] + ".json"), "w") as fh:
             json.dump(data, fh, ensure_ascii=False, separators=(",", ":"))
         add("companies", c["corp_code"], data)
         for lid in dict.fromkeys(lookup_ids(q) + lookup_ids(data["company"]["name"]) + lookup_ids(c["stock_code"])):
             add("lookup", lid, {"corpCode": c["corp_code"], "name": data["company"]["name"]})
-        result = {"status": "done", "corpCode": c["corp_code"], "name": data["company"]["name"]}
+        if req:
+            add("results", req, {"status": "done", "corpCode": c["corp_code"], "name": data["company"]["name"], "at": now()})
         f = data["financials"] or {}
         filled = sum(v is not None for k in ("revenue", "operatingIncome", "netIncome", "ocf") for v in f.get(k, []))
         print(f"[{q}] {data['company']['name']} {c['corp_code']} | 재무 {f.get('fsDiv','-')} {f.get('years',['-'])[0]}~{f.get('years',['-'])[-1]} 채움 {filled}/20 "
               f"| BS {f.get('balanceAsOf','-')} | 메자닌 {len(data['mezzanine']['issued'])}건 | 최대주주 {data['mezzanine'].get('majorShareholderPct')}%")
-    if req:
-        add("results", req, {**result, "at": dt.datetime.now().isoformat(timespec="seconds")})
     with open(os.path.join(up, "writes.json"), "w") as fh:
         json.dump(writes, fh, ensure_ascii=False, indent=1)
     print(f"업로드 목록: {os.path.join(up, 'writes.json')} ({len(writes)}건)")
