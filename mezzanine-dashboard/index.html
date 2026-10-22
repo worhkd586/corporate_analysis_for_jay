@@ -9,7 +9,7 @@
   --panel: #ffffff;
   --panel-2: #eef2f0;
   --fg: #16201d;
-  --fg-muted: #5b6a65;
+  --fg-muted: #4a5853;
   --line: #d6dfdb;
   --accent: #1f6b5c;
   --accent-soft: #dcebe6;
@@ -26,26 +26,27 @@
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #0f1513; --panel: #161e1b; --panel-2: #1c2622; --fg: #e4ece9; --fg-muted: #93a49e; --line: #2a3632;
+    --bg: #0f1513; --panel: #161e1b; --panel-2: #1c2622; --fg: #e4ece9; --fg-muted: #a7b6b0; --line: #2a3632;
     --accent: #5fbfa7; --accent-soft: #1d3530; --ok: #6cc58f; --warn: #e2ad57; --bad: #ec7c7c;
     --ok-soft: #1b3326; --warn-soft: #3a2d17; --bad-soft: #3c1f1f; --series-2: #a99ae6; --series-3: #e39a62; color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #0f1513; --panel: #161e1b; --panel-2: #1c2622; --fg: #e4ece9; --fg-muted: #93a49e; --line: #2a3632;
+  --bg: #0f1513; --panel: #161e1b; --panel-2: #1c2622; --fg: #e4ece9; --fg-muted: #a7b6b0; --line: #2a3632;
   --accent: #5fbfa7; --accent-soft: #1d3530; --ok: #6cc58f; --warn: #e2ad57; --bad: #ec7c7c;
   --ok-soft: #1b3326; --warn-soft: #3a2d17; --bad-soft: #3c1f1f; --series-2: #a99ae6; --series-3: #e39a62; color-scheme: dark;
 }
-body { background: var(--bg); color: var(--fg); font-family: var(--font-body); line-height: 1.55; }
-.wrap { max-width: 1240px; margin: 0 auto; padding-block: 18px 96px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 20px; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.6; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 20px 110px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 24px; }
 h1, h2, h3 { text-wrap: balance; margin: 0; }
 h1 { font-size: 1.45rem; font-weight: 700; letter-spacing: -0.01em; }
-h2 { font-size: 1.05rem; font-weight: 600; }
-h3 { font-size: 0.95rem; font-weight: 600; }
+h2 { font-size: 1.15rem; font-weight: 700; }
+h3 { font-size: 1.02rem; font-weight: 650; }
 .eyebrow { font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-muted); font-weight: 600; }
 .muted { color: var(--fg-muted); }
 .num { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
-.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; min-width: 0; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 22px; min-width: 0; }
+@media (max-width: 560px) { .panel { padding: 16px; } }
 
 /* header + search */
 .top { display: flex; flex-wrap: wrap; gap: 16px; align-items: end; justify-content: space-between; }
@@ -56,10 +57,12 @@ h3 { font-size: 0.95rem; font-weight: 600; }
 button { font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); padding: 10px 14px; }
 button.primary { background: var(--accent); border-color: var(--accent); color: var(--bg); font-weight: 600; }
 button:disabled { opacity: 0.55; cursor: progress; }
-.status { font-size: 0.85rem; color: var(--fg-muted); min-height: 1.3em; }
+.status { font-size: 0.88rem; color: var(--fg-muted); }
+/* 상태 문구도 버튼도 없으면 줄 자체를 접는다 */
+.actions.top:not(:has(.status:not(:empty))):not(:has(button:not([hidden]))) { display: none; }
 .status.err { color: var(--bad); }
 
-.banner { display: flex; gap: 10px; align-items: flex-start; padding: 10px 14px; border-radius: 8px; background: var(--warn-soft); color: var(--fg); font-size: 0.85rem; border: 1px solid var(--line); }
+.banner { display: flex; gap: 10px; align-items: flex-start; padding: 10px 14px; border-radius: 8px; background: var(--panel); color: var(--fg-muted); font-size: 0.84rem; border: 1px solid var(--line); border-left: 4px solid var(--warn); }
 .banner b { color: var(--warn); }
 
 /* verdict */
@@ -75,14 +78,15 @@ button:disabled { opacity: 0.55; cursor: progress; }
 .pill.na { background: var(--panel-2); color: var(--fg-muted); }
 .co-meta { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.85rem; color: var(--fg-muted); }
 .summary { margin: 8px 0 0; max-width: 75ch; }
-.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 14px; }
-.kpi { background: var(--panel-2); border-radius: 8px; padding: 10px 12px; display: grid; gap: 2px; }
-.kpi .v { font-family: var(--font-num); font-size: 1.15rem; font-weight: 600; }
-.kpi .l { font-size: 0.75rem; color: var(--fg-muted); }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(122px, 1fr)); gap: 10px; margin-top: 16px; }
+.kpi .s { font-size: 0.78rem; color: var(--fg-muted); }
+.kpi { background: var(--panel-2); border-radius: 10px; padding: 12px 14px; display: grid; gap: 3px; align-content: start; }
+.kpi .v { font-family: var(--font-num); font-size: 1.25rem; font-weight: 600; }
+.kpi .l { font-size: 0.8rem; color: var(--fg-muted); }
 
 /* criteria */
 .tier { display: grid; gap: 10px; }
-.tier-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.tier-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
 .tier-tag { font-family: var(--font-num); font-weight: 600; font-size: 0.8rem; padding: 2px 8px; border-radius: 6px; background: var(--accent-soft); color: var(--accent); }
 .crit-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
 .crit { display: grid; gap: 8px; align-content: start; border-left: 4px solid var(--line); }
@@ -94,26 +98,29 @@ button:disabled { opacity: 0.55; cursor: progress; }
 .dots { display: flex; gap: 4px; }
 .dots i { width: 18px; height: 6px; border-radius: 3px; background: var(--line); display: block; }
 .dots i.on { background: currentColor; }
-.crit p { margin: 0; font-size: 0.88rem; }
+.crit p { margin: 0; font-size: 0.92rem; }
 .crit ul { margin: 0; padding-left: 18px; font-size: 0.82rem; color: var(--fg-muted); }
 .crit ul li + li { margin-top: 2px; }
 
 /* detail grid */
 .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 @media (max-width: 860px) { .grid-2 { grid-template-columns: minmax(0, 1fr); } }
-.panel-head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; flex-wrap: wrap; margin-bottom: 10px; }
+.panel-head { display: flex; justify-content: space-between; gap: 6px 16px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 16px; }
+.panel-head > div:first-child, .panel-head > h3:first-child { min-width: 0; }
+.note { display: block; font-size: 0.85rem; color: var(--fg-muted); font-weight: 400; margin-top: 3px; }
 .chart { position: relative; width: 100%; }
 .chart svg { display: block; width: 100%; height: auto; }
-.chart text { fill: var(--fg-muted); font-family: var(--font-num); font-size: 11px; }
+.chart text { fill: var(--fg-muted); font-family: var(--font-num); font-size: 12px; }
 .tip { position: absolute; pointer-events: none; background: var(--fg); color: var(--bg); font-size: 0.78rem; padding: 6px 8px; border-radius: 6px; white-space: nowrap; transform: translate(-50%, -110%); font-family: var(--font-num); }
-.legend { display: flex; gap: 14px; font-size: 0.78rem; color: var(--fg-muted); flex-wrap: wrap; }
+.legend { display: flex; gap: 16px; font-size: 0.84rem; color: var(--fg-muted); flex-wrap: wrap; }
 .legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; background: var(--c); }
 
 .table-scroll { overflow-x: auto; }
-table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
-th, td { padding: 7px 10px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+th, td { padding: 10px 12px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+tbody tr:hover td { background: var(--panel-2); }
 th:first-child, td:first-child { text-align: left; }
-th { font-weight: 600; color: var(--fg-muted); font-size: 0.78rem; }
+th { font-weight: 600; color: var(--fg-muted); font-size: 0.8rem; background: var(--panel); position: sticky; top: 0; }
 td { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
 td:first-child { font-family: var(--font-body); }
 tr.self td { background: var(--accent-soft); font-weight: 600; }
@@ -141,7 +148,7 @@ details.method table th { text-align: left; }
 .qual.s-risk { border-left-color: var(--bad); }
 .qual.s-watch { border-left-color: var(--warn); }
 .qual.s-ok { border-left-color: var(--ok); }
-.qual p { margin: 0; font-size: 0.88rem; }
+.qual p { margin: 0; font-size: 0.92rem; }
 .qual ul { margin: 0; padding-left: 18px; font-size: 0.8rem; color: var(--fg-muted); }
 .qual .ev { display: flex; flex-wrap: wrap; gap: 6px; font-size: 0.75rem; }
 .qual .ev a, .disc a { color: var(--accent); text-decoration: none; }
@@ -166,7 +173,7 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .search input { width: min(260px, 100%); }
 .tabs { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; margin-bottom: -1px; }
 .tabs::-webkit-scrollbar { display: none; }
-.tab { background: none; border: none; border-bottom: 2px solid transparent; border-radius: 0; padding: 9px 12px; color: var(--fg-muted); white-space: nowrap; display: inline-flex; gap: 6px; align-items: center; }
+.tab { background: none; border: none; border-bottom: 3px solid transparent; border-radius: 0; padding: 11px 14px; font-size: 0.95rem; color: var(--fg-muted); white-space: nowrap; display: inline-flex; gap: 6px; align-items: center; }
 .tab:hover { color: var(--fg); }
 .tab[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--accent); font-weight: 600; }
 .badge { font-family: var(--font-num); font-size: 0.7rem; min-width: 18px; padding: 1px 6px; border-radius: 999px; background: var(--bad-soft); color: var(--bad); font-weight: 600; }
@@ -179,24 +186,28 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 
 /* 핵심 신호 · 이상 신호 */
 .signal-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
-.signal { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 10px 12px; border-radius: 8px; background: var(--panel-2); }
-.signal .t { font-weight: 600; font-size: 0.9rem; }
-.signal .d { font-size: 0.84rem; color: var(--fg-muted); margin-top: 2px; }
-.signal .why { margin: 6px 0 0; padding-left: 18px; font-size: 0.8rem; color: var(--fg-muted); }
-.signal .rel { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; font-size: 0.76rem; }
+.signal { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 14px 16px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--line); }
+.signal.sev-bad { border-left-color: var(--bad); }
+.signal.sev-warn { border-left-color: var(--warn); }
+.signal .t { font-weight: 650; font-size: 0.97rem; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.signal .d { font-size: 0.9rem; color: var(--fg-muted); margin-top: 4px; font-family: var(--font-num); }
+.signal details { margin-top: 8px; font-size: 0.86rem; }
+.signal summary { cursor: pointer; color: var(--accent); font-size: 0.84rem; }
+.signal .why { margin: 6px 0 0; padding-left: 18px; color: var(--fg); }
+.signal .rel { display: grid; gap: 4px; margin-top: 8px; font-size: 0.84rem; }
 .signal .rel a { color: var(--accent); text-decoration: none; }
-@media (max-width: 560px) { .signal { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 560px) { .signal { grid-template-columns: minmax(0, 1fr); } .signal .btn-ask { justify-self: start; } }
 td.anom { background: var(--bad-soft); color: var(--bad); font-weight: 600; cursor: help; }
 td.anom.mid { background: var(--warn-soft); color: var(--warn); }
 
 /* 지표 카드 + 스파크라인 */
-.ratio-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
-.rcard { background: var(--panel-2); border-radius: 8px; padding: 12px; display: grid; gap: 4px; align-content: start; min-width: 0; }
-.rcard .top { display: flex; justify-content: space-between; gap: 6px; align-items: baseline; }
-.rcard .name { font-size: 0.8rem; color: var(--fg-muted); }
-.rcard .val { font-family: var(--font-num); font-size: 1.3rem; font-weight: 600; }
-.rcard .sub { font-size: 0.72rem; color: var(--fg-muted); }
-.rcard svg { display: block; width: 100%; height: 36px; }
+.ratio-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.rcard { background: var(--panel-2); border-radius: 10px; padding: 14px; display: grid; gap: 6px; align-content: start; min-width: 0; }
+.rcard .top { display: flex; justify-content: space-between; gap: 6px; align-items: center; }
+.rcard .name { font-size: 0.9rem; font-weight: 600; }
+.rcard .val { font-family: var(--font-num); font-size: 1.5rem; font-weight: 600; }
+.rcard .sub { font-size: 0.8rem; color: var(--fg-muted); }
+.rcard svg { display: block; width: 100%; height: 40px; }
 .chart-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 @media (max-width: 860px) { .chart-grid { grid-template-columns: minmax(0, 1fr); } }
 
@@ -207,7 +218,7 @@ td.anom.mid { background: var(--warn-soft); color: var(--warn); }
 .drawer-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
 .drawer-ctx { padding: 10px 16px; font-size: 0.78rem; color: var(--fg-muted); border-bottom: 1px solid var(--line); display: grid; gap: 6px; }
 .msgs { overflow-y: auto; padding: 14px 16px; display: grid; gap: 10px; align-content: start; }
-.msg { padding: 10px 12px; border-radius: 10px; font-size: 0.88rem; white-space: pre-wrap; word-break: break-word; max-width: 92%; }
+.msg { padding: 12px 14px; border-radius: 12px; font-size: 0.93rem; line-height: 1.65; white-space: pre-wrap; word-break: break-word; max-width: 92%; }
 .msg.user { background: var(--accent-soft); justify-self: end; }
 .msg.ai { background: var(--panel-2); justify-self: start; }
 .msg.ai.pending { color: var(--fg-muted); }
@@ -238,7 +249,7 @@ td.anom.mid { background: var(--warn-soft); color: var(--warn); }
 </header>
 
 <div class="wrap">
-  <div class="actions">
+  <div class="actions top">
     <div class="status" id="status" role="status"></div>
     <button id="dartBtn" type="button" class="primary" hidden>DART 수집 요청</button>
     <button id="estBtn" type="button" hidden>Claude 추정으로 바로 보기</button>
@@ -268,7 +279,7 @@ td.anom.mid { background: var(--warn-soft); color: var(--warn); }
     </section>
 
     <section class="panel">
-      <div class="panel-head"><h3>먼저 볼 신호</h3><span class="muted" style="font-size:0.78rem">재무 이상 · 상장유지 요건 · 정성평가 위험을 모았습니다</span></div>
+      <div class="panel-head"><div><h3>먼저 볼 신호</h3><span class="note">재무 이상 · 상장유지 요건 · 정성평가 위험을 모았습니다</span></div></div>
       <ul class="signal-list" id="signalList"></ul>
     </section>
 
@@ -278,55 +289,59 @@ td.anom.mid { background: var(--warn-soft); color: var(--warn); }
   <!-- 재무 -->
   <div class="tabpanel" id="tab-finance" role="tabpanel" hidden>
     <section class="panel">
-      <div class="panel-head"><h3>핵심 지표 추이 <span class="src" id="src-ratio"></span></h3><span class="muted" style="font-size:0.78rem">큰 숫자는 최근 값, 선은 연도별 추이</span></div>
+      <div class="panel-head"><div><h3>핵심 지표 추이 <span class="src" id="src-ratio"></span></h3><span class="note">큰 숫자는 최근 값, 선은 연도별 추이</span></div></div>
       <div class="ratio-grid" id="ratioCards"></div>
     </section>
 
     <section class="panel">
-      <div class="panel-head"><h3>재무 이상 신호 <span class="src" id="src-anom"></span></h3><span class="muted" style="font-size:0.78rem">전년 대비 급변·부호 전환·이익과 현금흐름 괴리를 자동으로 찾았습니다</span></div>
+      <div class="panel-head"><div><h3>재무 이상 신호 <span class="src" id="src-anom"></span></h3><span class="note">전년 대비 급변·부호 전환·이익과 현금흐름 괴리를 자동으로 찾았습니다</span></div></div>
       <ul class="signal-list" id="anomalyList"></ul>
     </section>
 
     <div class="chart-grid">
       <section class="panel" id="finPanel">
-        <div class="panel-head"><h3>매출·영업이익 <span class="src" id="src-finchart"></span></h3><span class="muted" style="font-size:0.78rem" id="finUnit"></span></div>
+        <div class="panel-head"><div><h3>매출·영업이익 <span class="src" id="src-finchart"></span></h3><span class="note" id="finUnit"></span></div></div>
         <div class="chart" id="finChart"></div>
       </section>
       <section class="panel">
-        <div class="panel-head"><h3>이익과 현금흐름</h3><span class="muted" style="font-size:0.78rem">영업이익·순이익·영업현금흐름이 따로 움직이면 원인 확인</span></div>
+        <div class="panel-head"><div><h3>이익과 현금흐름</h3><span class="note">영업이익·순이익·영업현금흐름이 따로 움직이면 원인 확인</span></div></div>
         <div class="chart" id="flowChart"></div>
       </section>
       <section class="panel">
-        <div class="panel-head"><h3>현금 vs 단기차입금</h3><span class="muted" style="font-size:0.78rem">풋 행사 때 갚을 돈이 있는지</span></div>
+        <div class="panel-head"><div><h3>현금 vs 단기차입금</h3><span class="note">풋 행사 때 갚을 돈이 있는지</span></div></div>
         <div class="chart" id="cashChart"></div>
       </section>
       <section class="panel">
-        <div class="panel-head"><h3>부채비율</h3><span class="muted" style="font-size:0.78rem">150% 양호 · 250% 위험 기준선</span></div>
+        <div class="panel-head"><div><h3>부채비율</h3><span class="note">150% 양호 · 250% 위험 기준선</span></div></div>
         <div class="chart" id="debtChart"></div>
       </section>
     </div>
 
     <section class="panel" id="listingPanel">
-      <div class="panel-head"><h3>상장유지 요건 간이 점검 <span class="src" id="src-listing"></span></h3><span class="muted" style="font-size:0.78rem">코스닥 관리종목 요건 기준 · 기술특례 유예 여부는 정성평가에서 확인</span></div>
+      <div class="panel-head"><div><h3>상장유지 요건 간이 점검 <span class="src" id="src-listing"></span></h3><span class="note">코스닥 관리종목 요건 기준 · 기술특례 유예 여부는 정성평가에서 확인</span></div></div>
       <div class="kpis" id="listingFlags"></div>
       <div class="chart" id="lossChart" style="margin-top:14px"></div>
       <div class="table-scroll" style="margin-top:12px"><table id="listingTable"></table></div>
     </section>
 
     <section class="panel">
-      <div class="panel-head"><h3>재무제표 요약 <span class="src" id="src-fin"></span></h3><span class="muted" style="font-size:0.78rem">색칠된 칸은 이상 신호 · 마우스를 올리면 이유</span></div>
+      <div class="panel-head"><div><h3>재무제표 요약 <span class="src" id="src-fin"></span></h3><span class="note">색칠된 칸은 이상 신호 · 마우스를 올리면 이유</span></div></div>
       <div class="table-scroll"><table id="finTable"></table></div>
     </section>
   </div>
 
   <!-- 메자닌·주가 -->
   <div class="tabpanel" id="tab-mezz" role="tabpanel" hidden>
+    <section class="panel">
+      <div class="panel-head"><div><h3>신용등급 <span class="src" id="src-credit"></span></h3><span class="note">한국신용평가 공개 등급. 등급이 없으면 비워 둡니다 (무등급 기업은 메자닌 상환 위험을 재무로만 판단)</span></div></div>
+      <div class="table-scroll"><table id="creditTable"></table></div>
+    </section>
     <section class="panel" id="pricePanel">
-      <div class="panel-head"><h3>주가 추이 (월말 종가, 최근 24개월) <span class="src" id="src-price"></span></h3><span class="muted num" id="priceNote" style="font-size:0.78rem"></span></div>
+      <div class="panel-head"><div><h3>주가 추이 (월말 종가, 최근 24개월) <span class="src" id="src-price"></span></h3><span class="note num" id="priceNote"></span></div></div>
       <div class="chart" id="priceChart"></div>
     </section>
     <section class="panel">
-      <div class="panel-head"><h3>기발행 메자닌 · 오버행 <span class="src" id="src-mezz"></span></h3><span class="muted" style="font-size:0.78rem" id="overhangNote"></span></div>
+      <div class="panel-head"><div><h3>기발행 메자닌 · 오버행 <span class="src" id="src-mezz"></span></h3><span class="note" id="overhangNote"></span></div></div>
       <div class="table-scroll"><table id="mezzTable"></table></div>
     </section>
     <section class="panel">
@@ -347,7 +362,7 @@ td.anom.mid { background: var(--warn-soft); color: var(--warn); }
       <ul class="extra" id="qualExtra"></ul>
     </section>
     <section class="panel">
-      <div class="panel-head"><h3>최근 2년 공시 <span class="src" id="src-disc"></span></h3><span class="muted" style="font-size:0.78rem">키워드를 누르면 해당 공시만 보입니다</span></div>
+      <div class="panel-head"><div><h3>최근 2년 공시 <span class="src" id="src-disc"></span></h3><span class="note">키워드를 누르면 해당 공시만 보입니다</span></div></div>
       <div class="chips" id="discChips"></div>
       <div class="table-scroll" style="max-height:420px;overflow:auto;margin-top:8px"><table id="discTable" class="disc"></table></div>
     </section>
@@ -356,11 +371,11 @@ td.anom.mid { background: var(--warn-soft); color: var(--warn); }
   <!-- 비교 -->
   <div class="tabpanel" id="tab-compare" role="tabpanel" hidden>
     <section class="panel">
-      <div class="panel-head"><h3>PBR 비교</h3><span class="muted" style="font-size:0.78rem">점선은 경쟁사 중앙값</span></div>
+      <div class="panel-head"><div><h3>PBR 비교</h3><span class="note">점선은 경쟁사 중앙값</span></div></div>
       <div class="chart" id="peerChart"></div>
     </section>
     <section class="panel">
-      <div class="panel-head"><h3>경쟁사 비교 · 밸류에이션 <span class="src" id="src-peer"></span></h3><span class="muted" style="font-size:0.78rem">음영 행이 분석 대상, 마지막 행은 경쟁사 중앙값</span></div>
+      <div class="panel-head"><div><h3>경쟁사 비교 · 밸류에이션 <span class="src" id="src-peer"></span></h3><span class="note">음영 행이 분석 대상, 마지막 행은 경쟁사 중앙값</span></div></div>
       <div class="table-scroll"><table id="peerTable"></table></div>
     </section>
   </div>
@@ -368,7 +383,7 @@ td.anom.mid { background: var(--warn-soft); color: var(--warn); }
   <!-- 시뮬레이터 -->
   <div class="tabpanel" id="tab-sim" role="tabpanel" hidden>
     <section class="panel">
-      <div class="panel-head"><h3>발행조건 시뮬레이터</h3><span class="muted" style="font-size:0.78rem">제안받은 조건을 넣으면 전환가치와 풋 수익률을 계산합니다</span></div>
+      <div class="panel-head"><div><h3>발행조건 시뮬레이터</h3><span class="note">제안받은 조건을 넣으면 전환가치와 풋 수익률을 계산합니다</span></div></div>
       <div class="calc">
         <label for="tPrice">현재 주가 (원)<input id="tPrice" type="number" inputmode="decimal"></label>
         <label for="tConv">전환가액 (원)<input id="tConv" type="number" inputmode="decimal"></label>
@@ -544,7 +559,8 @@ function render(d) {
     [m.issued ? "4년 메자닌 발행액 / 시총" : "메자닌 잔액 / 시총", pct(m.overhangPct)],
     ["최대주주 지분 (담보)", isNum(m.majorShareholderPct) ? pct(m.majorShareholderPct) + (isNum(m.pledgedPct) ? " (" + pct(m.pledgedPct, 0) + ")" : "") : "—"],
     ["일평균 거래대금", isNum(p.avgDailyValue) ? fmt(p.avgDailyValue) + "억원" : "—"],
-  ].forEach(([l, val]) => kpis.append(el("div", { class: "kpi" }, el("span", { class: "l" }, l), el("span", { class: "v" }, val))));
+    ["신용등급 (한신평)", creditMain(d.dart?.credit)?.grade || "—", (() => { const r = creditMain(d.dart?.credit); return r ? [r.type, r.outlook].filter(Boolean).join(" · ") : "공개 등급 없음"; })()],
+  ].forEach(([l, val, sub]) => kpis.append(el("div", { class: "kpi" }, el("span", { class: "l" }, l), el("span", { class: "v" }, val), sub ? el("span", { class: "s" }, sub) : null)));
 
   // tiers
   const tiers = document.getElementById("tiers"); tiers.replaceChildren();
@@ -582,6 +598,7 @@ function render(d) {
   if (askState.key !== companyKey(d)) resetAsk(d);
   drawCharts();
   renderMezz(m);
+  renderCredit(d);
   renderRisks(d.risks || []);
   calc();
 }
@@ -609,7 +626,7 @@ function drawPrice(p) {
   const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, width: "100%", role: "img", "aria-label": "월별 주가 추이" });
   ticks.forEach(t => { svg.append(svgEl("line", { x1: L, x2: W - R, y1: y(t), y2: y(t), stroke: "var(--line)", "stroke-width": 1 })); const tx = svgEl("text", { x: L - 6, y: y(t) + 4, "text-anchor": "end" }); tx.textContent = fmt(t); svg.append(tx); });
   const every = Math.ceil(s.length / Math.max(2, Math.floor((W - L - R) / 70)));
-  s.forEach((d, i) => { if (i % every === 0 || i === s.length - 1) { const tx = svgEl("text", { x: x(i), y: H - 8, "text-anchor": i === s.length - 1 ? "end" : "middle" }); tx.textContent = d.m.slice(2).replace("-", "."); svg.append(tx); } });
+  s.forEach((d, i) => { if ((i % every === 0 && s.length - 1 - i >= every / 2) || i === s.length - 1) { const tx = svgEl("text", { x: x(i), y: H - 8, "text-anchor": i === s.length - 1 ? "end" : "middle" }); tx.textContent = d.m.slice(2).replace("-", "."); svg.append(tx); } });
   const line = s.map((d, i) => `${i ? "L" : "M"}${x(i)},${y(d.p)}`).join("");
   svg.append(svgEl("path", { d: line + `L${x(s.length - 1)},${y(y0)}L${x(0)},${y(y0)}Z`, fill: "var(--accent)", "fill-opacity": 0.1 }));
   svg.append(svgEl("path", { d: line, fill: "none", stroke: "var(--accent)", "stroke-width": 2 }));
@@ -670,8 +687,11 @@ function renderMezz(m) {
   const cur = current.price?.current; const body = el("tbody");
   const gapCell = x => { const gap = isNum(cur) && x.conversionPrice > 0 ? (cur / x.conversionPrice - 1) * 100 : null; return el("td", { style: isNum(gap) ? "color: var(--" + (gap >= 0 ? "ok" : "bad") + ")" : "" }, isNum(gap) ? (gap > 0 ? "+" : "") + fmt(gap, 1) + "%" : "—"); };
   if (dartList) {
-    t.append(el("thead", {}, el("tr", {}, ...["구분", "결의일", "발행액(억원)", "전환/행사가", "최저 조정가", "현재가 대비", "표면/만기(%)", "전환청구 시작", "만기"].map(h => el("th", {}, h)))));
-    list.forEach(x => body.append(el("tr", {}, el("td", {}, [x.type, x.round].filter(Boolean).join(" ")), el("td", {}, x.decided || "—"), el("td", {}, fmt(x.amount)), el("td", {}, fmt(x.conversionPrice)), el("td", {}, fmt(x.refixFloor)), gapCell(x), el("td", {}, fmt(x.coupon, 1) + " / " + fmt(x.ytm, 1)), el("td", {}, x.convStart || "—"), el("td", {}, x.maturity || "—"))));
+    const adv = current.price?.avgDailyValue;
+    t.append(el("thead", {}, el("tr", {}, ...["구분", "결의일", "발행액(억원)", "전환/행사가", "최저 조정가", "현재가 대비", "표면/만기(%)", "전환청구 시작", "매도 소요일*", "만기"].map(h => el("th", {}, h)))));
+    list.forEach(x => { const ed = exitDays(x.amount, adv); body.append(el("tr", {}, el("td", {}, [x.type, x.round].filter(Boolean).join(" ")), el("td", {}, x.decided || "—"), el("td", {}, fmt(x.amount)), el("td", {}, fmt(x.conversionPrice)), el("td", {}, fmt(x.refixFloor)), gapCell(x), el("td", {}, fmt(x.coupon, 1) + " / " + fmt(x.ytm, 1)), el("td", {}, x.convStart || "—"),
+      el("td", { style: isNum(ed) ? "color: var(--" + (ed > 40 ? "bad" : ed > 15 ? "warn" : "ok") + ")" : "" }, isNum(ed) ? fmt(ed, 0) + "일" : "—"), el("td", {}, x.maturity || "—"))); });
+    body.append(el("tr", {}, el("td", { colspan: "10", class: "muted", style: "font-family:var(--font-body);font-size:0.8rem;text-align:left;white-space:normal" }, "* 매도 소요일: 전환 물량 전체를 일평균 거래대금의 20%씩 매도한다고 가정한 날수. 15일 초과 주의, 40일 초과 위험.")));
   } else {
     t.append(el("thead", {}, el("tr", {}, ...["구분", "잔액(억원)", "전환/행사가", "리픽싱 하한", "현재가 대비", "풋 시점", "만기"].map(h => el("th", {}, h)))));
     list.forEach(x => body.append(el("tr", {}, el("td", {}, [x.type, x.round].filter(Boolean).join(" ")), el("td", {}, fmt(x.amount)), el("td", {}, fmt(x.conversionPrice)), el("td", {}, fmt(x.refixFloor)), gapCell(x), el("td", {}, x.putDate || "—"), el("td", {}, x.maturity || "—"))));
@@ -883,7 +903,7 @@ function buildQualPrompt(v) {
     financials: { unit: "억원", years: f.years, revenue: f.revenue, operatingIncome: f.operatingIncome, pretaxIncome: f.pretaxIncome, netIncome: f.netIncome, ocf: f.ocf, equityHist: f.equityHist,
       balance: { asOf: f.balanceAsOf, cash: f.cash, shortDebt: f.shortDebt, totalDebt: f.totalDebt, liabilities: f.totalLiabilities, equity: f.equity } },
     listingFlags: listing.flags.map(x => x.label + ": " + x.value),
-    mezzanine: d.mezzanine, audit: d.audit,
+    mezzanine: d.mezzanine, audit: d.audit, credit: d.credit?.ratings || "공개 신용등급 없음",
   };
   const disc = (d.disclosures || []).slice(0, 200).map(x => `${x.d}|${x.t}|${x.n}`).join("\n");
   return `당신은 한국 메자닌(CB·BW·EB) 투자 심사역입니다. 아래 기업의 정성평가를 하세요. 숫자로 일률화하기 어려운 특이사항(파생·특수 계약, 상장유지 특례, 감사·지배구조·소송, 자금조달 패턴, 사업 이벤트)을 찾아내는 것이 목적입니다.
@@ -934,6 +954,36 @@ document.getElementById("qualBtn").addEventListener("click", async () => {
   const n = a.items.filter(x => x.status === "risk").length;
   setStatus(`정성평가를 마쳤습니다. 위험 ${n}건. 결과는 저장돼 다음에 바로 보입니다.`);
 });
+
+// ── 신용등급 (한국신용평가) ─────────────────────────────────────────────
+const CREDIT_ORDER = [/회사채|무보증|선순위/, /Issuer/i, /보증사채/, /기업어음/, /단기사채/];
+function creditMain(c) {
+  const rs = c?.ratings || []; if (!rs.length) return null;
+  for (const rx of CREDIT_ORDER) { const r = rs.find(x => rx.test(x.type)); if (r) return r; }
+  return rs[0];
+}
+// 장기등급 위험도: BBB 이하·전망 부정적이면 주의, BB 이하면 위험 (투기등급)
+function creditClass(r) {
+  if (!r) return "na";
+  const g = r.grade || "";
+  if (/^(BB|B|CCC|CC|C|D)/.test(g) || /^(A3|B|C|D)$/.test(g)) return "bad";
+  if (/^BBB/.test(g) || /부정적|하향/.test(r.outlook || "")) return "warn";
+  return "ok";
+}
+function renderCredit(d) {
+  const t = document.getElementById("creditTable"); t.replaceChildren();
+  const c = d.dart?.credit, src = document.getElementById("src-credit");
+  src.textContent = c ? "한국신용평가" : ""; src.className = "src" + (c ? " dart" : "");
+  t.append(el("thead", {}, el("tr", {}, ...["구분", "등급", "전망", "평가일", "원문"].map(h => el("th", {}, h)))));
+  const body = el("tbody");
+  if (!c?.ratings?.length) body.append(el("tr", {}, el("td", {}, d.dart ? "공개된 신용등급 없음" : "DART 수집 기업만 조회합니다"), el("td", {}, ""), el("td", {}, ""), el("td", {}, ""), el("td", {}, "")));
+  else c.ratings.forEach(r => body.append(el("tr", {}, el("td", {}, r.type), el("td", {}, el("span", { class: "pill " + creditClass(r) }, r.grade)), el("td", {}, r.outlook || ""), el("td", {}, r.date || ""),
+    el("td", {}, el("a", { href: "https://www.kisrating.com/ratingsSearch/corp_overview.do?kiscd=" + encodeURIComponent(c.kiscd), target: "_blank", rel: "noopener", style: "color:var(--accent)" }, "한신평")))));
+  t.append(body);
+}
+
+// 전환 물량을 시장에서 소화하는 데 걸리는 날 (일평균 거래대금의 20%씩 판다고 가정)
+const exitDays = (amount, adv) => isNum(amount) && adv > 0 ? amount / (adv * 0.2) : null;
 
 // ── 공통 차트: 연도별 막대·선, 기준선, 이상 신호 표시, 툴팁 ─────────────────────
 function drawSeriesChart(box, o) {
@@ -1120,10 +1170,16 @@ function askButton(q, label = "Claude에게 물어보기") {
   return b;
 }
 function signalItem(cls, title, desc, why, rel, question) {
-  const li = el("li", { class: "signal" }, el("span", { class: "pill " + cls }, { bad: "위험", warn: "주의", na: "확인", ok: "양호" }[cls] || "확인"));
-  const mid = el("div", { style: "min-width:0" }, el("div", { class: "t" }, title), el("div", { class: "d" }, desc));
-  if (why?.length) { const ul = el("ul", { class: "why" }); why.slice(0, 3).forEach(w => ul.append(el("li", {}, w))); mid.append(el("div", { class: "d", style: "margin-top:6px" }, "가능한 원인"), ul); }
-  if (rel?.length) { const r = el("div", { class: "rel" }, el("span", { class: "muted" }, "관련 공시")); rel.forEach(x => r.append(el("a", { href: "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=" + encodeURIComponent(x.n), target: "_blank", rel: "noopener" }, (x.d || "").replace(/(\d{4})(\d{2})(\d{2})/, "$1.$2.$3") + " " + x.t))); mid.append(r); }
+  const li = el("li", { class: "signal sev-" + cls });
+  const mid = el("div", { style: "min-width:0" },
+    el("div", { class: "t" }, el("span", { class: "pill " + cls }, { bad: "위험", warn: "주의", na: "확인", ok: "양호" }[cls] || "확인"), title),
+    el("div", { class: "d" }, desc));
+  if (why?.length || rel?.length) {
+    const det = el("details", {}, el("summary", {}, "가능한 원인" + (rel?.length ? " · 관련 공시 " + rel.length + "건" : "")));
+    if (why?.length) { const ul = el("ul", { class: "why" }); why.slice(0, 3).forEach(w => ul.append(el("li", {}, w))); det.append(ul); }
+    if (rel?.length) { const r = el("div", { class: "rel" }); rel.forEach(x => r.append(el("a", { href: "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=" + encodeURIComponent(x.n), target: "_blank", rel: "noopener" }, (x.d || "").replace(/(\d{4})(\d{2})(\d{2})/, "$1.$2.$3") + " " + x.t))); det.append(r); }
+    mid.append(det);
+  }
   li.append(mid, question ? askButton(question) : el("span"));
   return li;
 }
@@ -1155,6 +1211,8 @@ function renderSignals(d) {
     const name = QUAL_ITEMS.find(q => q.key === x.key)?.name || x.key;
     items.push([1, signalItem("bad", "정성 · " + name, x.finding || "", null, null, `정성평가에서 '${name}'이(가) 위험으로 나왔습니다. 근거와 투자 조건으로 보완할 방법을 알려주세요.`)]);
   });
+  const cr = creditMain(d.dart?.credit), crc = creditClass(cr);
+  if (cr && (crc === "bad" || crc === "warn")) items.push([crc === "bad" ? 0 : 2, signalItem(crc, `신용등급 · ${cr.type} ${cr.grade}${cr.outlook ? " (" + cr.outlook + ")" : ""}`, "한국신용평가 " + (cr.date || ""), null, null, `신용등급이 ${cr.grade}${cr.outlook ? ", 전망 " + cr.outlook : ""}입니다. 메자닌 투자 시 이 등급이 의미하는 상환 위험과 협상할 조건을 알려주세요.`)]);
   const rp = d.scores?.repayment;
   if (rp && rp.score <= 2) items.push([0, signalItem("bad", "상환능력 · " + rp.score + "/5", rp.reason || "", null, null, "풋옵션 행사 시 상환 능력이 충분한지, 어떤 조건을 걸어야 하는지 알려주세요.")]);
   items.sort((a, b) => a[0] - b[0]);
@@ -1288,7 +1346,7 @@ function askContext(d) {
     price: d.price && { asOf: d.price.asOf, current: d.price.current, high52: d.price.high52, low52: d.price.low52, marketCap_억원: d.price.marketCap, avgDailyValue_억원: d.price.avgDailyValue, volatility_pct: d.price.volatility },
     valuation: d.valuation, peers: (d.peers || []).map(p => ({ name: p.name, pbr: p.pbr, per: p.per, opMargin: p.opMargin })),
     mezzanine: { issued: d.mezzanine?.issued || d.mezzanine?.outstanding, majorShareholderPct: d.mezzanine?.majorShareholderPct, majorShareholder: d.dart?.mezzanine?.majorShareholder },
-    audit: d.dart?.audit?.rows?.[0], scores: Object.fromEntries(Object.entries(d.scores || {}).map(([k, v]) => [k, v?.score])),
+    credit: d.dart?.credit?.ratings || "등급 없음", audit: d.dart?.audit?.rows?.[0], scores: Object.fromEntries(Object.entries(d.scores || {}).map(([k, v]) => [k, v?.score])),
     qual: d.qual && { summary: d.qual.summary, items: (d.qual.items || []).map(x => `${x.key}:${x.status} ${x.finding || ""}`) },
     disclosures: (d.dart?.disclosures || []).slice(0, 80).map(x => `${x.d} ${x.t}`),
   };

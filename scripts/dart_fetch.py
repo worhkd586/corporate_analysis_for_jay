@@ -384,6 +384,40 @@ def peers(code, n=5):
         return None
 
 
+KIS = "https://www.kisrating.com"
+
+
+def kis_post(path, data):
+    req = urllib.request.Request(KIS + path, data=urllib.parse.urlencode(data).encode(), headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        return r.read().decode("utf-8", "replace")
+
+
+def credit_rating(name):
+    """한국신용평가(KIS) 공개 등급. 등급이 없으면 None (대시보드에서 공란)."""
+    q = norm(name)
+    kw = re.sub(r"\s|\(주\)|㈜|주식회사", "", name or "")  # KIS 검색은 대소문자를 구분한다 (SK하이닉스)
+    try:
+        d = json.loads(kis_post("/ratingsSearch/corp_presearch.json",
+                                {"mainSearchType": 1, "keyword": kw, "searchKeyword": kw, "searchYn": "M", "searchType": 1}))
+        cands = d.get("dataList1") or []
+        hit = {"kiscd": d.get("kiscd"), "upcheOpt": d.get("upcheOpt")} if d.get("isRedirect") else \
+            next((c for c in cands if norm(c.get("upcheOpt")) == q), None)
+        if not hit or not hit.get("kiscd"):
+            return None
+        page = kis_post("/ratingsSearch/corp_overview.do", {"kiscd": hit["kiscd"]})
+        text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", re.sub(r"<script.*?</script>|<style.*?</style>", "", page, flags=re.S)))
+        # 예: "회사채(선순위) 등급 BBB Outlook/Watchlist 부정적 평가일 2026.06.29", "기업어음 등급 A1 Watchlist 평가일 2026.06.12"
+        ratings = [{"type": re.sub(r"^평가의견\s+\S+\s+", "", t.strip()), "grade": g, "outlook": o or None, "date": dt_.replace(".", "-")}
+                   for t, g, o, dt_ in re.findall(r"([가-힣A-Za-z()·/ ]{2,20}?)\s*등급\s+(\S+)\s+(?:Outlook/)?Watchlist\s*(\S*?)\s*평가일\s+([\d.]{10})", text)]
+        if not ratings:
+            return None
+        return {"source": "한국신용평가", "kiscd": hit["kiscd"], "name": hit.get("upcheOpt"), "ratings": ratings}
+    except Exception as e:
+        print(f"  신용등급 조회 실패: {e}")
+        return None
+
+
 def disclosures(corp):
     """최근 2년 공시 목록 (정성평가 근거). 제목·접수일·접수번호만 남긴다."""
     end = dt.date.today()
@@ -429,6 +463,7 @@ def build(c):
         "sharesOutstanding": n_shares,
         "price": price(c["stock_code"], n_shares),
         "peers": peers(c["stock_code"]),
+        "credit": credit_rating(info.get("corp_name") or c["name"]),
         "mezzanine": {"issued": mz, **sh},
         "audit": audit(c["corp_code"], year - 1),
         "disclosures": disclosures(c["corp_code"]),
@@ -526,7 +561,8 @@ def main(argv):
               f"| BS {f.get('balanceAsOf','-')} | 메자닌 {len(data['mezzanine']['issued'])}건 | 최대주주 {data['mezzanine'].get('majorShareholderPct')}% "
               f"| 공시 {len(data['disclosures'])}건 | 감사 {'있음' if data['audit'] else '없음'} "
               f"| 주가 {(data['price'] or {}).get('current', '없음')} ({(data['price'] or {}).get('asOf', '-')}) "
-              f"| 경쟁사 {len((data['peers'] or {}).get('list', []))}곳")
+              f"| 경쟁사 {len((data['peers'] or {}).get('list', []))}곳 "
+              f"| 신용등급 {', '.join(r['type'] + ' ' + r['grade'] for r in (data['credit'] or {}).get('ratings', [])) or '없음'}")
     with open(os.path.join(up, "writes.json"), "w") as fh:
         json.dump(writes, fh, ensure_ascii=False, indent=1)
     print(f"업로드 목록: {os.path.join(up, 'writes.json')} ({len(writes)}건)")
