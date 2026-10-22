@@ -316,6 +316,69 @@ def price(code, shares):
     }
 
 
+def naver_json(path):
+    with urllib.request.urlopen("https://m.stock.naver.com/api/" + path, timeout=30) as r:
+        return json.loads(r.read())
+
+
+def nnum(s):
+    """'1,234', '35.52배', '-3,758원', 'N/A' → 숫자 또는 None."""
+    m = re.search(r"-?[\d,]*\.?\d+", str(s or "").replace(" ", ""))
+    return float(m.group().replace(",", "")) if m and "N/A" not in str(s) else None
+
+
+def peer_metrics(code, mcap=None):
+    """네이버 종목 지표(PER·PBR)와 연간 실적(최근 확정 연도 영업이익률·매출성장률)."""
+    integ = naver_json(f"stock/{code}/integration")
+    ti = {x.get("code"): x.get("value") for x in integ.get("totalInfos", [])}
+    fin = naver_json(f"stock/{code}/finance/annual").get("financeInfo") or {}
+    keys = [t["key"] for t in fin.get("trTitleList", []) if t.get("isConsensus") == "N"]
+    rows = {r.get("title"): r.get("columns") or {} for r in fin.get("rowList", [])}
+    val = lambda title, k: nnum((rows.get(title, {}).get(k) or {}).get("value")) if k else None
+    k1 = keys[-1] if keys else None
+    k0 = keys[-2] if len(keys) > 1 else None
+    rev1, rev0 = val("매출액", k1), val("매출액", k0)
+    return {"name": integ.get("stockName"), "code": code, "marketCap": mcap,
+            "per": nnum(ti.get("per")), "pbr": nnum(ti.get("pbr")),
+            "opMargin": val("영업이익률", k1),
+            "revenueGrowth": round((rev1 / rev0 - 1) * 100, 1) if rev0 and rev0 > 0 and rev1 is not None else None,
+            "netIncome": val("당기순이익", k1), "fy": k1}
+
+
+def peers(code, n=5):
+    """네이버 동일 업종에서 시가총액이 가장 비슷한 n곳 (규모가 비슷해야 비교 의미가 있다)."""
+    try:
+        ind = naver_json(f"stock/{code}/integration").get("industryCode")
+        if not ind:
+            return None
+        stocks, page, name = [], 1, None
+        while page <= 3:
+            d = naver_json(f"stocks/industry/{ind}?page={page}&pageSize=100")
+            name = name or (d.get("groupInfo") or {}).get("name")
+            stocks += d.get("stocks") or []
+            if len(stocks) >= (d.get("totalCount") or 0):
+                break
+            page += 1
+        cap = lambda x: nnum(x.get("marketValue"))
+        me = next((x for x in stocks if x.get("itemCode") == code), None)
+        base = cap(me) if me else None
+        cands = [x for x in stocks if x.get("itemCode") != code and (cap(x) or 0) > 0 and x.get("stockEndType") == "stock"]
+        if base:
+            cands.sort(key=lambda x: abs(math.log(cap(x) / base)))
+        else:
+            cands.sort(key=lambda x: -cap(x))
+        out = []
+        for x in cands[:n]:
+            try:
+                out.append(peer_metrics(x["itemCode"], cap(x)))
+            except Exception as e:
+                print(f"  경쟁사 {x.get('stockName')} 지표 실패: {e}")
+        return {"source": "naver", "industryCode": ind, "industryName": name, "list": out}
+    except Exception as e:
+        print(f"  경쟁사 조회 실패: {e}")
+        return None
+
+
 def disclosures(corp):
     """최근 2년 공시 목록 (정성평가 근거). 제목·접수일·접수번호만 남긴다."""
     end = dt.date.today()
@@ -360,6 +423,7 @@ def build(c):
         "financials": fin,
         "sharesOutstanding": n_shares,
         "price": price(c["stock_code"], n_shares),
+        "peers": peers(c["stock_code"]),
         "mezzanine": {"issued": mz, **sh},
         "audit": audit(c["corp_code"], year - 1),
         "disclosures": disclosures(c["corp_code"]),
@@ -456,7 +520,8 @@ def main(argv):
         print(f"[{q}] {data['company']['name']} {c['corp_code']} | 재무 {f.get('fsDiv','-')} {f.get('years',['-'])[0]}~{f.get('years',['-'])[-1]} 채움 {filled}/20 "
               f"| BS {f.get('balanceAsOf','-')} | 메자닌 {len(data['mezzanine']['issued'])}건 | 최대주주 {data['mezzanine'].get('majorShareholderPct')}% "
               f"| 공시 {len(data['disclosures'])}건 | 감사 {'있음' if data['audit'] else '없음'} "
-              f"| 주가 {(data['price'] or {}).get('current', '없음')} ({(data['price'] or {}).get('asOf', '-')})")
+              f"| 주가 {(data['price'] or {}).get('current', '없음')} ({(data['price'] or {}).get('asOf', '-')}) "
+              f"| 경쟁사 {len((data['peers'] or {}).get('list', []))}곳")
     with open(os.path.join(up, "writes.json"), "w") as fh:
         json.dump(writes, fh, ensure_ascii=False, indent=1)
     print(f"업로드 목록: {os.path.join(up, 'writes.json')} ({len(writes)}건)")
