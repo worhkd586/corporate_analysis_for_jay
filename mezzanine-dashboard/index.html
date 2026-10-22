@@ -225,6 +225,29 @@ td.anom.mid { background: var(--warn-soft); color: var(--warn); }
 .ask-form { display: grid; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line); }
 .ask-form textarea { font: inherit; font-size: 0.9rem; padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); resize: vertical; min-height: 64px; width: 100%; box-sizing: border-box; }
 .ask-form .row { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
+/* 재무제표 상세 */
+.stmt > summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.stmt > summary::-webkit-details-marker { display: none; }
+.stmt > summary .chev { font-size: 0.85rem; color: var(--accent); border: 1px solid var(--accent); border-radius: 8px; padding: 6px 12px; white-space: nowrap; }
+.stmt[open] > summary .chev::after { content: " 접기"; }
+.stmt:not([open]) > summary .chev::after { content: " 펼치기"; }
+.stmt-bar { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin: 18px 0 12px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; padding: 8px 14px; background: var(--panel); color: var(--fg-muted); }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-selected="true"] { background: var(--accent); color: var(--bg); font-weight: 600; }
+.stmt-bar input[type="search"] { font: inherit; font-size: 0.9rem; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); width: min(240px, 100%); }
+.stmt-bar label { display: inline-flex; gap: 6px; align-items: center; font-size: 0.88rem; color: var(--fg-muted); }
+.stmt-scroll { max-height: 600px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; }
+.stmt-table th, .stmt-table td { padding: 8px 12px; }
+.stmt-table td:first-child, .stmt-table th:first-child { position: sticky; left: 0; background: var(--panel); z-index: 1; white-space: normal; min-width: 170px; max-width: 280px; }
+.stmt-table th { z-index: 2; }
+.stmt-table th:first-child { z-index: 3; }
+.stmt-table tr.h td { font-weight: 650; background: var(--panel-2); }
+.stmt-table tr.c td:first-child { padding-left: 26px; }
+.stmt-table td.ask { width: 1%; }
+.ask-mini { padding: 3px 8px; font-size: 0.75rem; border-radius: 6px; color: var(--accent); border-color: var(--line); background: transparent; }
+.stmt-table tr:not(:hover) .ask-mini { opacity: 0.35; }
 .loading-skel { animation: pulse 1.4s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: 0.45; } }
 @media (prefers-reduced-motion: reduce) { .loading-skel { animation: none; } }
@@ -323,6 +346,22 @@ td.anom.mid { background: var(--warn-soft); color: var(--warn); }
     <section class="panel">
       <div class="panel-head"><div><h3>재무제표 요약 <span class="src" id="src-fin"></span></h3><span class="note">색칠된 칸은 이상 신호 · 마우스를 올리면 이유</span></div></div>
       <div class="table-scroll"><table id="finTable"></table></div>
+    </section>
+
+    <section class="panel" id="stmtPanel">
+      <details class="stmt" id="stmtDetails">
+        <summary>
+          <div><h3>재무제표 상세 <span class="src" id="src-stmt"></span></h3><span class="note">재무상태표·손익계산서·현금흐름표의 모든 계정을 연도별로 봅니다. 계정 검색, 주요 계정만 보기, 계정별로 Claude에게 묻기를 할 수 있습니다.</span></div>
+          <span class="chev"></span>
+        </summary>
+        <div class="stmt-bar">
+          <div class="seg" role="tablist" id="stmtSeg" aria-label="재무제표 종류"></div>
+          <input type="search" id="stmtSearch" placeholder="계정 검색 (예: 전환사채)" aria-label="계정 검색">
+          <label for="stmtMain"><input type="checkbox" id="stmtMain"> 주요 계정만</label>
+        </div>
+        <div class="stmt-scroll"><table id="stmtTable" class="stmt-table"></table></div>
+        <p class="note" id="stmtNote" style="margin-top:10px"></p>
+      </details>
     </section>
 
     <section class="panel">
@@ -594,6 +633,7 @@ function render(d) {
   renderAnomalies(d);
   renderSignals(d);
   renderFinTable(f, d.anomalies);
+  renderStatements(d);
   renderPeers(d);
   renderHeader(d, total, v, qualRisk);
   if (askState.key !== companyKey(d)) resetAsk(d);
@@ -985,6 +1025,58 @@ function renderCredit(d) {
 
 // 전환 물량을 시장에서 소화하는 데 걸리는 날 (일평균 거래대금의 20%씩 판다고 가정)
 const exitDays = (amount, adv) => isNum(amount) && adv > 0 ? amount / (adv * 0.2) : null;
+
+// ── 재무제표 상세 (전체 계정) ─────────────────────────────────────────────
+const STMTS = [["BS", "재무상태표"], ["IS", "손익계산서"], ["CF", "현금흐름표"]];
+const STMT_MAIN = {
+  BS: /총계|^유동자산$|^비유동자산$|^유동부채$|^비유동부채$|현금및현금성자산|매출채권|재고자산|차입금|사채|유형자산|무형자산|^자본금$|이익잉여금|결손금/,
+  IS: /^매출액|수익\(매출액\)|영업수익|매출원가|매출총|판매비|영업이익|영업손|금융수익|금융(비용|원가)|법인세|당기순/,
+  CF: /활동.*현금흐름|현금흐름$|기초현금|기말현금|이자.*지급|사채의\s?(발행|증가)|차입금의\s?(차입|상환|증가|감소)|유상증자|주식의\s?발행/,
+};
+const STMT_BOLD = /총계|합계|^유동자산$|^비유동자산$|^유동부채$|^비유동부채$|^자본$|현금흐름$|^매출액|^매출총|^영업이익|^당기순|법인세비용차감전|기말현금/;
+const stmtState = { sj: "BS", q: "", main: false };
+(function buildStmtSeg() {
+  const seg = document.getElementById("stmtSeg");
+  STMTS.forEach(([k, label]) => {
+    const b = el("button", { type: "button", role: "tab", id: "stmtSeg-" + k, "aria-selected": String(k === stmtState.sj) }, label);
+    b.addEventListener("click", () => { stmtState.sj = k; renderStatements(current); });
+    seg.append(b);
+  });
+  document.getElementById("stmtSearch").addEventListener("input", e => { stmtState.q = e.target.value.trim(); renderStatements(current); });
+  document.getElementById("stmtMain").addEventListener("change", e => { stmtState.main = e.target.checked; renderStatements(current); });
+})();
+function renderStatements(d) {
+  const panel = document.getElementById("stmtPanel"), t = document.getElementById("stmtTable"), note = document.getElementById("stmtNote");
+  const st = d.financials?.statements;
+  panel.hidden = !st;
+  t.replaceChildren(); if (!st) return;
+  STMTS.forEach(([k]) => document.getElementById("stmtSeg-" + k).setAttribute("aria-selected", String(k === stmtState.sj)));
+  const src = document.getElementById("src-stmt"); src.textContent = "DART · " + (d.financials.fsDiv || "") + " · 억원"; src.className = "src dart";
+  const cols = st.columns || [], hasInterim = cols.length > (d.financials.years || []).length;
+  const nAnnual = (d.financials.years || []).length;
+  const q = stmtState.q.replace(/\s+/g, ""), mainRx = STMT_MAIN[stmtState.sj];
+  const rows = (st[stmtState.sj] || []).filter(r => (!q || r.n.replace(/\s+/g, "").includes(q)) && (!stmtState.main || mainRx.test(r.n.replace(/\s+/g, ""))));
+  const head = el("tr", {}, el("th", {}, "계정"));
+  cols.forEach((c, i) => head.append(el("th", {}, i >= nAnnual ? c + (stmtState.sj === "BS" ? "말" : " 누적") : c)));
+  head.append(el("th", {}, "전년 대비"), el("th", {}, ""));
+  t.append(el("thead", {}, head));
+  const body = el("tbody");
+  rows.forEach(r => {
+    const bold = STMT_BOLD.test(r.n.replace(/\s+/g, ""));
+    const tr = el("tr", { class: bold ? "h" : "c" }, el("td", {}, r.n));
+    r.v.forEach(v => tr.append(el("td", { style: isNum(v) && v < 0 ? "color: var(--bad)" : "" }, fmt(v, Math.abs(v) < 10 && v !== 0 ? 1 : 0))));
+    const a = r.v[nAnnual - 1], b = r.v[nAnnual - 2];
+    const yoy = isNum(a) && isNum(b) && b !== 0 ? (a - b) / Math.abs(b) * 100 : null;
+    tr.append(el("td", { style: isNum(yoy) && Math.abs(yoy) >= 50 ? "font-weight:600;color:var(--warn)" : "" }, isNum(yoy) ? (yoy > 0 ? "+" : "") + fmt(yoy, 0) + "%" : "—"));
+    const btn = el("button", { type: "button", class: "ask-mini", title: r.n + " 계정을 Claude에게 묻기" }, "묻기");
+    btn.addEventListener("click", () => openAsk(`${STMTS.find(x => x[0] === stmtState.sj)[1]}의 '${r.n}' 계정이 ${cols.map((c, i) => c + " " + fmt(r.v[i])).join(", ")}(억원)로 움직였습니다. 이 계정이 무엇이고, 이 추이가 메자닌 투자 관점에서 무엇을 뜻하는지 설명해 주세요.`, true));
+    tr.append(el("td", { class: "ask" }, btn));
+    body.append(tr);
+  });
+  if (!rows.length) body.append(el("tr", {}, el("td", { colspan: String(cols.length + 3), class: "muted" }, "조건에 맞는 계정이 없습니다.")));
+  t.append(body);
+  note.textContent = `${rows.length}개 계정 · 단위 억원 · ` + (hasInterim ? `${last(cols)}: ${stmtState.sj === "BS" ? "반기·분기 말 잔액" : "연초부터 누적 금액"}. ` : "") + "전년 대비는 최근 두 사업연도 비교이며 50% 이상 변동은 주황색입니다. 연도마다 이름이 조금 다른 계정은 한 줄로 합쳤습니다.";
+}
 
 // ── 공통 차트: 연도별 막대·선, 기준선, 이상 신호 표시, 툴팁 ─────────────────────
 function drawSeriesChart(box, o) {

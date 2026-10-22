@@ -184,15 +184,17 @@ def financials(corp):
         raw.append(latest_items if y == latest else statements(corp, y, "11011")[0])
         years.append(str(y))
     # 사업보고서 데이터가 없는 해(상장 전 등)는 다음 해 보고서의 전기, 그다음 해 보고서의 전전기 금액으로 채운다
-    for i, items in enumerate(raw):
-        if items:
-            rows.append(extract(items))
-        elif i + 1 < len(raw) and raw[i + 1]:
-            rows.append(extract(raw[i + 1], "frmtrm_amount"))
-        elif i + 2 < len(raw) and raw[i + 2]:
-            rows.append(extract(raw[i + 2], "bfefrmtrm_amount"))  # 2년 뒤 보고서의 전전기 금액
-        else:
-            rows.append({})
+    def source(i):
+        if raw[i]:
+            return raw[i], "thstrm_amount"
+        if i + 1 < len(raw) and raw[i + 1]:
+            return raw[i + 1], "frmtrm_amount"
+        if i + 2 < len(raw) and raw[i + 2]:
+            return raw[i + 2], "bfefrmtrm_amount"
+        return [], None
+    for i in range(len(raw)):
+        items, col = source(i)
+        rows.append(extract(items, col) if items else {})
     series = lambda k: [eok(r.get(k)) for r in rows]
     f = {"unit": "억원", "fsDiv": "연결" if fs_div == "CFS" else "별도", "years": years,
          "revenue": series("revenue"), "operatingIncome": series("operatingIncome"),
@@ -204,6 +206,7 @@ def financials(corp):
          "cashHist": series("cash"), "shortDebtHist": series("shortDebt")}
     last = rows[-1]
     bs_src = f"{latest} 사업보고서"
+    interim, interim_label = None, None
     # 대차대조표 항목은 사업보고서 이후의 가장 최근 분기보고서로 갱신 (상환능력은 최신 잔액이 중요)
     for code, label in REPORTS[1:]:
         items, _ = statements(corp, latest + 1, code)
@@ -211,12 +214,82 @@ def financials(corp):
             last = {**last, **{k: v for k, v in extract(items).items()
                                if k in ("totalAssets", "totalLiabilities", "equity", "cash", "shortDebt", "totalDebt") and v is not None}}
             bs_src = f"{latest + 1} {label}"
+            interim, interim_label = items, f"{latest + 1} {label.replace('보고서', '')}"
             break
     for k in ("totalAssets", "totalLiabilities", "equity", "cash", "shortDebt", "totalDebt"):
         f[k] = eok(last.get(k))
     f["interestExpense"] = eok(rows[-1].get("interestExpense"))
     f["balanceAsOf"] = bs_src
+    f["statements"] = full_statements([source(i) for i in range(len(raw))], years, interim, interim_label)
     return f
+
+
+# 연도마다 이름만 조금 다른 같은 계정을 한 줄로 합친다: "영업이익(손실)"="영업이익", "금융원가"="금융비용", "영업수익"="매출액"
+ACCOUNT_ALIASES = [(r"^(수익\(매출액\)|영업수익|매출)$", "매출액"), (r"^금융원가$", "금융비용"), (r"^영업비용$", "매출원가"),
+                   (r"^지분법(이익|손익|손실)$", "지분법손익"), (r"^기타(영업외)?(수익|이익)$", "기타수익"), (r"^기타(영업외)?(비용|손실)$", "기타비용")]
+
+
+def canon_account(nm):
+    base = re.sub(r"\s+", "", nm)
+    base = re.sub(r"\((손실|이익|손익)\)$", "", base)          # 영업이익(손실) → 영업이익
+    base = re.sub(r"^(당기순|분기순|반기순)", "당기순", base)
+    for rx, to in ACCOUNT_ALIASES:
+        if re.search(rx, base):
+            return to
+    return base
+
+
+# 손익계산서는 DART 응답 순서가 표시 순서가 아니어서 일반적인 손익 흐름 순서로 다시 놓는다
+IS_ORDER = [r"^(매출액|수익\(매출액\)|영업수익|매출)$", r"매출원가|영업비용", r"매출총", r"판매비", r"^영업이익|^영업손", r"기타수익|기타영업외수익",
+            r"기타비용|기타영업외비용", r"금융수익", r"금융(비용|원가)", r"지분법", r"법인세(비용)?차감전", r"^법인세", r"계속영업", r"중단영업",
+            r"^당기순", r"기타포괄", r"총포괄", r"지배기업|지배주주", r"비지배", r"주당"]
+
+
+def full_statements(sources, years, interim, interim_label):
+    """재무상태표·손익계산서·현금흐름표 전체 계정 (억원). 대시보드의 '재무제표 상세'용.
+
+    sources: 연도별 (보고서 항목, 금액 열). 같은 이름의 계정은 연도가 달라도 한 줄로 합친다
+    (보고서마다 account_id가 바뀌는 경우가 있어서). 한 보고서 안에 같은 이름이 또 나오면 #2, #3으로 구분한다.
+    interim: 최근 분기·반기 보고서 항목 (손익은 누적 금액).
+    """
+    cols = list(years) + ([interim_label] if interim else [])
+    latest = next((items for items, _ in reversed(sources) if items), [])
+    is_sj = ("IS",) if any(it.get("sj_div") == "IS" for it in latest) else ("CIS",)
+    out = {"columns": cols}
+
+    def keyed(items, sjs):
+        seen = {}
+        for it in items:
+            if it.get("sj_div") not in sjs:
+                continue
+            nm = (it.get("account_nm") or "").strip()
+            base = canon_account(nm)
+            seen[base] = seen.get(base, 0) + 1
+            yield (base if seen[base] == 1 else f"{base}#{seen[base]}"), nm, it
+
+    for key, sjs in (("BS", ("BS",)), ("IS", is_sj), ("CF", ("CF",))):
+        rows = {}
+        def put(items, col, ci, cum=False):
+            for k, nm, it in keyed(items, sjs):
+                amt = (it.get("thstrm_add_amount") or it.get(col)) if cum else it.get(col)
+                r = rows.setdefault(k, {"n": nm, "v": [None] * len(cols)})
+                if r["v"][ci] is None:
+                    r["v"][ci] = eok(num(amt))
+        for ci, (items, col) in enumerate(sources):
+            if items:
+                put(items, col, ci)
+        if interim:
+            put(interim, "thstrm_amount", len(cols) - 1, cum=key == "IS")
+        pos = {k: i for i, (k, _, _) in enumerate(keyed(latest, sjs))}
+        def rank(k):
+            p = pos.get(k, 10000)
+            if key != "IS":
+                return (0, p)   # 재무상태표·현금흐름표는 DART 순서(합계 → 소계 → 세부)를 그대로 쓴다
+            name = rows[k]["n"].replace(" ", "")
+            g = next((i for i, rx in enumerate(IS_ORDER) if re.search(rx, name)), len(IS_ORDER))
+            return (g, p)
+        out[key] = [rows[k] for k in sorted(rows, key=rank) if any(v is not None for v in rows[k]["v"])]
+    return out
 
 
 def kdate(s):
