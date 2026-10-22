@@ -111,6 +111,7 @@ ACCOUNTS = {
     "revenue": (("IS", "CIS"), ["ifrs-full_Revenue"], r"^(매출액|수익\(매출액\)|영업수익|매출)$"),
     "operatingIncome": (("IS", "CIS"), ["dart_OperatingIncomeLoss"], r"^영업이익(\(손실\))?$|^영업손익$"),
     "netIncome": (("IS", "CIS"), ["ifrs-full_ProfitLoss"], r"^당기순이익(\(손실\))?$|^당기순손익$"),
+    "pretaxIncome": (("IS", "CIS"), ["ifrs-full_ProfitLossBeforeTax"], r"^법인세(비용)?차감전"),
     "ocf": (("CF",), ["ifrs-full_CashFlowsFromUsedInOperatingActivities"], r"^영업활동.*현금흐름"),
     "interestExpense": (("IS", "CIS"), ["ifrs-full_InterestExpense", "dart_InterestExpense"], r"^이자비용$"),
     "financeCosts": (("IS", "CIS"), ["ifrs-full_FinanceCosts"], r"^금융(비용|원가)$"),
@@ -191,7 +192,9 @@ def financials(corp):
     series = lambda k: [eok(r.get(k)) for r in rows]
     f = {"unit": "억원", "fsDiv": "연결" if fs_div == "CFS" else "별도", "years": years,
          "revenue": series("revenue"), "operatingIncome": series("operatingIncome"),
-         "netIncome": series("netIncome"), "ocf": series("ocf")}
+         "netIncome": series("netIncome"), "ocf": series("ocf"),
+         # 법차손(법인세비용차감전손실) / 자기자본 비율 점검용
+         "pretaxIncome": series("pretaxIncome"), "equityHist": series("equity")}
     last = rows[-1]
     bs_src = f"{latest} 사업보고서"
     # 대차대조표 항목은 사업보고서 이후의 가장 최근 분기보고서로 갱신 (상환능력은 최신 잔액이 중요)
@@ -270,6 +273,34 @@ def shares(corp, year):
     return None
 
 
+def disclosures(corp):
+    """최근 2년 공시 목록 (정성평가 근거). 제목·접수일·접수번호만 남긴다."""
+    end = dt.date.today()
+    bgn = end - dt.timedelta(days=730)
+    out = []
+    for page in range(1, 4):
+        data = json.loads(get("list.json", corp_code=corp, bgn_de=bgn.strftime("%Y%m%d"), end_de=end.strftime("%Y%m%d"),
+                              page_no=page, page_count=100))
+        if data.get("status") != "000":
+            break
+        for it in data.get("list", []):
+            out.append({"d": it.get("rcept_dt"), "t": re.sub(r"\s+", " ", it.get("report_nm") or "").strip(),
+                        "n": it.get("rcept_no"), "f": it.get("flr_nm")})
+        if page >= int(data.get("total_page") or 1):
+            break
+    return out
+
+
+def audit(corp, year):
+    """회계감사인·감사의견 (사업보고서). 필드는 DART가 준 그대로 짧게 잘라 둔다."""
+    for y in (year, year - 1):
+        rows = get_json("accnutAdtorNmNdAdtOpinion.json", corp_code=corp, bsns_year=y, reprt_code="11011")
+        if rows:
+            skip = {"rcept_no", "corp_cls", "corp_code", "corp_name"}
+            return {"year": y, "rows": [{k: str(v)[:120] for k, v in r.items() if k not in skip} for r in rows[:4]]}
+    return None
+
+
 def build(c):
     info = json.loads(get("company.json", corp_code=c["corp_code"]))
     fin = financials(c["corp_code"])
@@ -285,6 +316,8 @@ def build(c):
         "financials": fin,
         "sharesOutstanding": shares(c["corp_code"], year),
         "mezzanine": {"issued": mz, **sh},
+        "audit": audit(c["corp_code"], year - 1),
+        "disclosures": disclosures(c["corp_code"]),
     }
 
 
@@ -376,7 +409,8 @@ def main(argv):
         f = data["financials"] or {}
         filled = sum(v is not None for k in ("revenue", "operatingIncome", "netIncome", "ocf") for v in f.get(k, []))
         print(f"[{q}] {data['company']['name']} {c['corp_code']} | 재무 {f.get('fsDiv','-')} {f.get('years',['-'])[0]}~{f.get('years',['-'])[-1]} 채움 {filled}/20 "
-              f"| BS {f.get('balanceAsOf','-')} | 메자닌 {len(data['mezzanine']['issued'])}건 | 최대주주 {data['mezzanine'].get('majorShareholderPct')}%")
+              f"| BS {f.get('balanceAsOf','-')} | 메자닌 {len(data['mezzanine']['issued'])}건 | 최대주주 {data['mezzanine'].get('majorShareholderPct')}% "
+              f"| 공시 {len(data['disclosures'])}건 | 감사 {'있음' if data['audit'] else '없음'}")
     with open(os.path.join(up, "writes.json"), "w") as fh:
         json.dump(writes, fh, ensure_ascii=False, indent=1)
     print(f"업로드 목록: {os.path.join(up, 'writes.json')} ({len(writes)}건)")
