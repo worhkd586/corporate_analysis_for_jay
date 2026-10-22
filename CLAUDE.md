@@ -16,6 +16,10 @@
    - results가 없는 요청만 최대 10건 처리하고 `.cache/upload/writes.json`을 만든다.
 3. `.cache/upload/writes.json`의 배열을 ArtifactData `batch`의 `writes`로 그대로 보낸다.
    - 이미 있는 문서(같은 기업을 다시 받은 경우)라서 거부되면 그 문서를 `get`해 `version`을 `if_version`으로 붙여 다시 보낸다.
-4. 사용자에게 처리한 기업과 실패한 요청을 한 줄씩 보고한다.
+4. 저장소를 못 쓰는 화면(claude.ai 밖, 다른 조직 계정)에서도 보이도록 같은 데이터를 대시보드 파일로도 올린다.
+   - `python3 scripts/static_files.py .cache/upload/writes.json` → `.cache/static/files.json`(게시 경로 → 로컬 파일 매핑)이 만들어진다.
+   - Artifact `read`(url은 위 대시보드)로 현재 페이지를 받는다. 결과에 적힌 저장 파일이 현재 페이지 전체다.
+   - Artifact publish: `url`=대시보드, `file_path`=read가 저장한 페이지 파일, `files`=`files.json`의 매핑 그대로. 페이지는 고치지 않고, 넘기지 않은 기존 파일은 그대로 남는다. `capabilities`는 넘기지 않는다(기존 유지).
+5. 사용자에게 처리한 기업과 실패한 요청을 한 줄씩 보고한다.
 
-저장소 구조: `companies/<corp_code>`(기업 데이터), `qual/<corp_code>`(정성평가 결과), `lookup/n_<정규화한 이름의 UTF-8 hex>`·`lookup/t_<종목코드>`(검색어 → corp_code), `results/<요청 id>`(처리 결과), `requests/<요청 id>`(대기열).
+저장소 구조(대시보드 파일 `data/c/<corp_code>.json`·`data/l/<검색키>.json`에도 같은 내용): `companies/<corp_code>`(기업 데이터), `qual/<corp_code>`(정성평가 결과), `lookup/n_<정규화한 이름의 UTF-8 hex>`·`lookup/t_<종목코드>`(검색어 → corp_code), `results/<요청 id>`(처리 결과), `requests/<요청 id>`(대기열).

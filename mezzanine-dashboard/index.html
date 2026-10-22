@@ -1452,7 +1452,7 @@ async function sendAsk(text) {
   addMsg("user", text); askEls.input.value = "";
   const bubble = addMsg("ai pending", "생각하는 중…");
   const sample = await samplePromise;
-  if (!sample) { bubble.textContent = "이 화면에서는 Claude에게 물어볼 수 없습니다. claude.ai에서 열어 주세요."; bubble.className = "msg ai"; return; }
+  if (!sample) { bubble.textContent = "이 화면에서는 Claude 기능이 꺼져 있습니다. 대시보드 소유자와 같은 claude.ai 조직 계정으로, claude.ai 안에서 열 때만 쓸 수 있습니다."; bubble.className = "msg ai"; return; }
   const rules = `당신은 한국 메자닌(CB·BW·EB) 투자 심사를 돕는 재무 분석가입니다. 아래 기업 데이터를 근거로 사용자의 질문에 한국어로 답하세요.
 - 숫자는 데이터에 있는 값을 인용하고, 재무 숫자가 튄 이유는 가능성이 높은 원인부터 2~4개 제시하고 각각 어떤 공시·주석에서 확인할 수 있는지 함께 적으세요.
 - 데이터에 없는 사실은 "(데이터 밖 정보, 확인 필요)"로 구분하세요.
@@ -1594,16 +1594,26 @@ const dbPromise = hasClaude ? window.claude.use("db") : Promise.resolve(null);
 const samplePromise = hasClaude ? window.claude.use("sample") : Promise.resolve(null);
 const norm = s => String(s || "").replace(/\s|\(주\)|㈜|주식회사/g, "").toLowerCase();   // scripts/dart_fetch.py의 norm()과 같아야 함
 const hex = s => Array.from(new TextEncoder().encode(s), b => b.toString(16).padStart(2, "0")).join("");
+// 저장소(db)를 못 쓰는 화면(claude.ai 밖에서 열었거나 다른 조직 계정)에서도 보이도록
+// 같은 데이터를 대시보드 파일(data/c/<corp_code>.json, data/l/<검색키>.json)로도 올려 둔다
+async function staticDoc(path) {
+  try { const r = await fetch(path, { cache: "no-cache" }); return r.ok ? await r.json() : null; } catch { return null; }
+}
 async function getCompany(code) {
-  const db = await dbPromise; if (!db || !code) return null;
-  try { const snap = await db.doc("companies/" + code).get(); return snap.exists ? snap.data() : null; } catch { return null; }
+  if (!code) return null;
+  const db = await dbPromise;
+  if (db) { try { const snap = await db.doc("companies/" + code).get(); if (snap.exists) return snap.data(); } catch {} }
+  return staticDoc("data/c/" + encodeURIComponent(code) + ".json");
 }
 async function findDart(q) {
-  const db = await dbPromise; if (!db) return null;
+  const db = await dbPromise;
   const ids = ["n_" + hex(norm(q)).slice(0, 190)];
   if (/^\d{6}$/.test(q.trim())) ids.unshift("t_" + q.trim());
   for (const id of ids) {
-    try { const snap = await db.doc("lookup/" + id).get(); if (snap.exists) return getCompany(snap.data().corpCode); } catch {}
+    let hit = null;
+    if (db) { try { const snap = await db.doc("lookup/" + id).get(); if (snap.exists) hit = snap.data(); } catch {} }
+    hit = hit || await staticDoc("data/l/" + id + ".json");
+    if (hit?.corpCode) return getCompany(hit.corpCode);
   }
   return null;
 }
@@ -1625,7 +1635,7 @@ const setStatus = (text, cls = "") => { statusEl.className = "status " + cls; st
 
 async function askClaude(prompt, label, tier) {
   const sample = await samplePromise;
-  if (!sample) { setStatus("이 화면에서는 Claude 분석을 사용할 수 없습니다. claude.ai에서 열어 주세요.", "err"); return null; }
+  if (!sample) { setStatus("이 화면에서는 Claude 기능이 꺼져 있습니다. 대시보드 소유자와 같은 claude.ai 조직 계정으로, claude.ai 안에서 열 때만 쓸 수 있습니다. 저장된 DART 데이터는 그대로 볼 수 있습니다.", "err"); return null; }
   ctl = new AbortController();
   btn.disabled = true; enrichBtn.disabled = true; stopBtn.hidden = false;
   setStatus(label, "loading-skel");
@@ -1674,7 +1684,7 @@ estBtn.addEventListener("click", async () => {
 dartBtn.addEventListener("click", async () => {
   const q = pendingQuery.trim(); if (!q) return;
   const db = await dbPromise;
-  if (!db) { setStatus("이 화면에서는 수집 요청을 저장할 수 없습니다. claude.ai에서 열어 주세요.", "err"); return; }
+  if (!db) { setStatus("이 화면에서는 수집 요청을 저장할 수 없습니다. 대시보드 소유자에게 기업명을 알려 주면 받아 둘 수 있습니다.", "err"); return; }
   const reqId = "r" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   dartBtn.disabled = true;
   try {
