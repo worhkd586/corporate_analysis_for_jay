@@ -3,7 +3,7 @@
 메자닌(CB·BW·EB) 투자 전 기업분석 대시보드.
 
 - 대시보드: `mezzanine-dashboard/index.html` → claude.ai Artifact https://claude.ai/artifact/Xg657YT7XEYf2j71uCrH6C 로 게시
-  (같은 URL에 다시 게시할 때는 Artifact `url`을 넘기고, capabilities는 `sample`, `db`(root read view / write admin)를 유지)
+  (같은 URL에 다시 게시할 때는 Artifact `url`을 넘기고, capabilities는 `sample`, `db`(root read view / write admin, `requests`·`qual`은 write interact)를 유지)
 - 평가 기준: `mezzanine-dashboard/CRITERIA.md`
 - DART 수집: `scripts/dart_fetch.py` (환경 변수 `DART_API_KEY` 필요)
 
