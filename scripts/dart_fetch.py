@@ -17,7 +17,9 @@
 
 표준 출력은 기업당 한 줄 요약만 남긴다.
 """
+import ast
 import datetime as dt
+import math
 import io
 import json
 import os
@@ -273,6 +275,47 @@ def shares(corp, year):
     return None
 
 
+def naver_sise(code, start, end, timeframe):
+    """네이버 증권 시세 [날짜, 시가, 고가, 저가, 종가, 거래량, ...] (DART에는 주가가 없다)."""
+    url = "https://api.finance.naver.com/siseJson.naver?" + urllib.parse.urlencode({
+        "symbol": code, "requestType": 1, "startTime": start.strftime("%Y%m%d"), "endTime": end.strftime("%Y%m%d"), "timeframe": timeframe})
+    with urllib.request.urlopen(url, timeout=30) as r:
+        rows = ast.literal_eval(r.read().decode("utf-8", "replace").strip())
+    return [x for x in rows[1:] if isinstance(x, list) and len(x) >= 6 and x[4]]
+
+
+def price(code, shares):
+    """현재가, 52주 고저, 20일 평균 거래대금(억원), 연환산 변동성(%), 24개월 월말 종가."""
+    end = dt.date.today()
+    try:
+        daily = naver_sise(code, end - dt.timedelta(days=380), end, "day")
+        monthly = naver_sise(code, end - dt.timedelta(days=760), end, "month")
+    except Exception as e:  # 시세가 없어도 DART 데이터는 저장한다
+        print(f"  시세 조회 실패: {e}")
+        return None
+    if not daily:
+        return None
+    year = daily[-250:]
+    closes = [x[4] for x in year]
+    rets = [math.log(b / a) for a, b in zip(closes, closes[1:]) if a and b]
+    mean = sum(rets) / len(rets) if rets else 0
+    vol = math.sqrt(sum((r - mean) ** 2 for r in rets) / (len(rets) - 1)) * math.sqrt(252) * 100 if len(rets) > 1 else None
+    last20 = daily[-20:]
+    cur = daily[-1][4]
+    d = str(daily[-1][0])
+    return {
+        "source": "naver",
+        "asOf": f"{d[:4]}-{d[4:6]}-{d[6:8]}",
+        "current": cur,
+        "high52": max(x[2] for x in year),
+        "low52": min(x[3] for x in year),
+        "avgDailyValue": round(sum(x[4] * x[5] for x in last20) / len(last20) / EOK, 1),
+        "volatility": round(vol, 1) if vol is not None else None,
+        "marketCap": round(cur * shares / EOK) if shares else None,
+        "series": [{"m": f"{str(x[0])[:4]}-{str(x[0])[4:6]}", "p": x[4]} for x in monthly[-24:]],
+    }
+
+
 def disclosures(corp):
     """최근 2년 공시 목록 (정성평가 근거). 제목·접수일·접수번호만 남긴다."""
     end = dt.date.today()
@@ -306,6 +349,7 @@ def build(c):
     fin = financials(c["corp_code"])
     year = int(fin["years"][-1]) + 1 if fin else dt.date.today().year
     mz = mezzanine(c["corp_code"])
+    n_shares = shares(c["corp_code"], year)
     sh = shareholders(c["corp_code"], year)
     return {
         "source": "DART",
@@ -314,7 +358,8 @@ def build(c):
                     "market": MARKET.get(info.get("corp_cls"), info.get("corp_cls")), "ceo": info.get("ceo_nm"),
                     "indutyCode": info.get("induty_code"), "homepage": info.get("hm_url")},
         "financials": fin,
-        "sharesOutstanding": shares(c["corp_code"], year),
+        "sharesOutstanding": n_shares,
+        "price": price(c["stock_code"], n_shares),
         "mezzanine": {"issued": mz, **sh},
         "audit": audit(c["corp_code"], year - 1),
         "disclosures": disclosures(c["corp_code"]),
@@ -410,7 +455,8 @@ def main(argv):
         filled = sum(v is not None for k in ("revenue", "operatingIncome", "netIncome", "ocf") for v in f.get(k, []))
         print(f"[{q}] {data['company']['name']} {c['corp_code']} | 재무 {f.get('fsDiv','-')} {f.get('years',['-'])[0]}~{f.get('years',['-'])[-1]} 채움 {filled}/20 "
               f"| BS {f.get('balanceAsOf','-')} | 메자닌 {len(data['mezzanine']['issued'])}건 | 최대주주 {data['mezzanine'].get('majorShareholderPct')}% "
-              f"| 공시 {len(data['disclosures'])}건 | 감사 {'있음' if data['audit'] else '없음'}")
+              f"| 공시 {len(data['disclosures'])}건 | 감사 {'있음' if data['audit'] else '없음'} "
+              f"| 주가 {(data['price'] or {}).get('current', '없음')} ({(data['price'] or {}).get('asOf', '-')})")
     with open(os.path.join(up, "writes.json"), "w") as fh:
         json.dump(writes, fh, ensure_ascii=False, indent=1)
     print(f"업로드 목록: {os.path.join(up, 'writes.json')} ({len(writes)}건)")
