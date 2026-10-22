@@ -183,12 +183,14 @@ def financials(corp):
     for y in range(latest - 4, latest + 1):
         raw.append(latest_items if y == latest else statements(corp, y, "11011")[0])
         years.append(str(y))
-    # 사업보고서가 없는 해(상장 전 등)는 다음 해 보고서의 전기(frmtrm) 금액으로 채운다
+    # 사업보고서 데이터가 없는 해(상장 전 등)는 다음 해 보고서의 전기, 그다음 해 보고서의 전전기 금액으로 채운다
     for i, items in enumerate(raw):
         if items:
             rows.append(extract(items))
         elif i + 1 < len(raw) and raw[i + 1]:
             rows.append(extract(raw[i + 1], "frmtrm_amount"))
+        elif i + 2 < len(raw) and raw[i + 2]:
+            rows.append(extract(raw[i + 2], "bfefrmtrm_amount"))  # 2년 뒤 보고서의 전전기 금액
         else:
             rows.append({})
     series = lambda k: [eok(r.get(k)) for r in rows]
@@ -196,7 +198,10 @@ def financials(corp):
          "revenue": series("revenue"), "operatingIncome": series("operatingIncome"),
          "netIncome": series("netIncome"), "ocf": series("ocf"),
          # 법차손(법인세비용차감전손실) / 자기자본 비율 점검용
-         "pretaxIncome": series("pretaxIncome"), "equityHist": series("equity")}
+         "pretaxIncome": series("pretaxIncome"), "equityHist": series("equity"),
+         # 연도별 대차대조표 (추이 차트·이상 신호용)
+         "totalAssetsHist": series("totalAssets"), "liabilitiesHist": series("totalLiabilities"),
+         "cashHist": series("cash"), "shortDebtHist": series("shortDebt")}
     last = rows[-1]
     bs_src = f"{latest} 사업보고서"
     # 대차대조표 항목은 사업보고서 이후의 가장 최근 분기보고서로 갱신 (상환능력은 최신 잔액이 중요)
