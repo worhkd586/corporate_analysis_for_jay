@@ -569,15 +569,27 @@ function renderRatios(f) {
 
 function renderPeers(d) {
   const t = document.getElementById("peerTable"); t.replaceChildren();
-  const cols = [["기업", null], ["시가총액(억원)", "marketCap", fmt], ["PER", "per", mult], ["PBR", "pbr", mult], ["EV/EBITDA", "evEbitda", mult], ["영업이익률", "opMargin", pct], ["매출성장률", "revenueGrowth", pct]];
-  const head = el("tr"); cols.forEach(([h]) => head.append(el("th", {}, h))); t.append(el("thead", {}, head));
   const f = d.financials || {}; const rev = f.revenue || [], opi = f.operatingIncome || [];
-  const self = { name: d.company?.name, marketCap: d.price?.marketCap, ...d.valuation,
+  const self = { name: d.company?.name, marketCap: d.price?.marketCap, ...d.valuation, netIncome: last(f.netIncome),
     opMargin: isNum(last(opi)) && last(rev) > 0 ? last(opi) / last(rev) * 100 : null,
     revenueGrowth: rev.length > 1 && rev[rev.length - 2] > 0 ? (last(rev) / rev[rev.length - 2] - 1) * 100 : null };
   const peers = d.peers || [];
+  // 적자 기업은 PER이 없으니 빈칸 대신 "적자"로 표시
+  const perText = r => isNum(r.per) ? mult(r.per) : isNum(r.netIncome) && r.netIncome <= 0 ? "적자" : "—";
+  let cols = [["기업", null], ["시가총액(억원)", "marketCap", fmt], ["PER", "per", null, perText], ["PBR", "pbr", mult], ["EV/EBITDA", "evEbitda", mult], ["영업이익률", "opMargin", pct], ["매출성장률", "revenueGrowth", pct]];
+  if (![self, ...peers].some(r => isNum(r.evEbitda))) cols = cols.filter(c => c[1] !== "evEbitda");
+  const head = el("tr"); cols.forEach(([h]) => head.append(el("th", {}, h))); t.append(el("thead", {}, head));
   const body = el("tbody");
-  const row = (r, cls) => { const tr = el("tr", { class: cls || "" }); cols.forEach(([, k, f2]) => tr.append(el("td", {}, k ? f2(r[k]) : (r.name || "—")))); return tr; };
+  const row = (r, cls) => {
+    const tr = el("tr", { class: cls || "" });
+    cols.forEach(([, k, f2, custom]) => {
+      if (!k) {
+        const name = r.code ? el("a", { href: "https://m.stock.naver.com/domestic/stock/" + encodeURIComponent(r.code), target: "_blank", rel: "noopener", style: "color:inherit" }, r.name || "—") : (r.name || "—");
+        tr.append(el("td", {}, name));
+      } else tr.append(el("td", {}, custom ? custom(r) : f2(r[k])));
+    });
+    return tr;
+  };
   body.append(row(self, "self"));
   peers.forEach(p => body.append(row(p)));
   if (peers.length) { const med = { name: "경쟁사 중앙값" }; cols.slice(1).forEach(([, k]) => med[k] = median(peers.map(p => p[k]))); const tr = row(med); tr.style.fontWeight = "600"; body.append(tr); }
@@ -913,15 +925,17 @@ function dartToView(doc) {
     isExample: false, dart: doc,
     company: { ...doc.company, sector: doc.company?.indutyCode ? "업종코드 " + doc.company.indutyCode : "", asOf: f.balanceAsOf },
     summary: "DART 공시" + (hasPrice ? "와 네이버 시세" : "") + " 데이터를 불러왔습니다. 경쟁사 비교와 나머지 점수는 'Claude로 채우기', 특이사항은 'Claude 정성평가 실행'을 누르면 추가됩니다.",
-    price: p, financials: f, valuation: pd.valuation, peers: [],
+    price: p, financials: f, valuation: pd.valuation, peers: doc.peers?.list || [],
     mezzanine: { issued: m.issued || [], majorShareholderPct: m.majorShareholderPct, overhangPct: pd.overhangPct, note: m.majorShareholder ? "최대주주 " + m.majorShareholder : "" },
     scores: ruleScores(f), risks: [],
     sources: { fin: "DART · " + [f.fsDiv, f.balanceAsOf].filter(Boolean).join(" · "), mezz: "DART 발행결정 공시",
-               price: hasPrice ? "네이버 시세 · " + (p.asOf || "") + " 종가" : "", peer: hasPrice ? "PER·PBR: DART+시세" : "", risk: "",
+               price: hasPrice ? "네이버 시세 · " + (p.asOf || "") + " 종가" : "",
+               peer: [hasPrice ? "PER·PBR: DART+시세" : "", doc.peers?.list?.length ? "경쟁사: 네이버 " + (doc.peers.industryName || "동일 업종") + " 시총 근접 " + doc.peers.list.length + "곳" : ""].filter(Boolean).join(" · "), risk: "",
                listing: "DART 재무 자동 계산", disc: "DART 공시목록" + (doc.fetchedAt ? " · " + doc.fetchedAt.slice(0, 10) + " 수집" : ""), qual: "" },
   };
 }
 
+const hasPeersOf = v => (v.peers || []).length > 0;
 // DART·시세 데이터는 다시 받지 않고, 빠진 항목만 짧게 받는다 (토큰 절약)
 function buildLitePrompt(v) {
   const f = v.financials, p = v.price || {}, hasPrice = isNum(p.current);
@@ -931,14 +945,17 @@ function buildLitePrompt(v) {
     mezzIssued: v.mezzanine.issued.map(x => [x.type, x.decided, x.amount, x.conversionPrice, x.refixFloor]),
     majorShareholderPct: v.mezzanine.majorShareholderPct,
     price: hasPrice ? { asOf: p.asOf, current: p.current, high52: p.high52, low52: p.low52, avgDailyValue: p.avgDailyValue, volatility: p.volatility, marketCap: p.marketCap } : null,
-    valuation: v.valuation };
+    valuation: v.valuation,
+    peers: hasPeersOf(v) ? v.peers.map(x => ({ name: x.name, per: x.per, pbr: x.pbr, opMargin: x.opMargin, revenueGrowth: x.revenueGrowth })) : undefined };
+  const hasPeers = (v.peers || []).length > 0;
+  const peerField = hasPeers ? "" : `"peers":[{"name":"","marketCap":0,"per":0,"pbr":0,"evEbitda":0,"opMargin":0,"revenueGrowth":0}],`;
   const priceField = hasPrice ? "" : `"asOf":"","price":{"current":0,"high52":0,"low52":0,"avgDailyValue":0,"volatility":0,"series":[{"m":"YYYY-MM","p":0}]},`;
   return `한국 메자닌(CB·BW·EB) 심사역으로서, 아래 데이터(금액 억원, 주가 원)를 가진 기업의 빠진 정보만 채우세요. 주어진 숫자는 반복하지 마세요.
 ${hasPrice ? "주가는 실제 시세가 주어졌으니 그대로 쓰고 다시 추정하지 마세요." : "주가는 추정이므로 기준 시점을 asOf에 적으세요."} 모르는 값은 null, 추정이면 reason에 "추정"이라고 쓰세요.
 데이터: ${JSON.stringify(brief)}
 JSON 하나만 반환:
-{${priceField}"sector":"","evEbitda":null,"peers":[{"name":"","marketCap":0,"per":0,"pbr":0,"evEbitda":0,"opMargin":0,"revenueGrowth":0}],"pledgedPct":null,"summary":"","scores":{"conversion":{"score":0,"reason":""},"overhang":{"score":0,"reason":""},"governance":{"score":0,"reason":""},"business":{"score":0,"reason":""},"valuation":{"score":0,"reason":""}},"risks":[{"level":"high|mid|low","text":""}]}
-peers: 국내 상장 경쟁사 3개. summary: 메자닌 관점 결론 2문장. score: 1~5.`;
+{${priceField}"sector":"","evEbitda":null,${peerField}"pledgedPct":null,"summary":"","scores":{"conversion":{"score":0,"reason":""},"overhang":{"score":0,"reason":""},"governance":{"score":0,"reason":""},"business":{"score":0,"reason":""},"valuation":{"score":0,"reason":""}},"risks":[{"level":"high|mid|low","text":""}]}
+${hasPeers ? "경쟁사는 실제 데이터가 주어졌으니 그것으로 valuation 점수를 매기세요." : "peers: 국내 상장 경쟁사 3개."} summary: 메자닌 관점 결론 2문장. score: 1~5.`;
 }
 
 function mergeLite(v, a) {
@@ -949,13 +966,13 @@ function mergeLite(v, a) {
   return {
     ...v,
     company: { ...v.company, sector: a.sector || v.company.sector, asOf: v.company.asOf },
-    summary: a.summary || v.summary, price: p, peers: Array.isArray(a.peers) ? a.peers : [],
+    summary: a.summary || v.summary, price: p, peers: hasPeersOf(v) ? v.peers : Array.isArray(a.peers) ? a.peers : [],
     valuation: { ...pd.valuation, evEbitda: isNum(a.evEbitda) ? a.evEbitda : null },
     mezzanine: { ...v.mezzanine, pledgedPct: isNum(a.pledgedPct) ? a.pledgedPct : null, overhangPct: pd.overhangPct },
     scores: { ...(a.scores || {}), ...ruleScores(f) },   // 상환능력·건전성은 항상 DART 계산값
     risks: Array.isArray(a.risks) ? a.risks : [],
     sources: { ...v.sources, qual: v.sources?.qual || "", price: real ? v.sources.price : "Claude 추정" + (a.asOf ? " · " + a.asOf : ""),
-               peer: (real ? "PER·PBR: DART+시세" : "PER·PBR: DART+추정 주가") + " · 경쟁사: Claude 추정", risk: "Claude 추정" },
+               peer: hasPeersOf(v) ? v.sources.peer : (real ? "PER·PBR: DART+시세" : "PER·PBR: DART+추정 주가") + " · 경쟁사: Claude 추정", risk: "Claude 추정" },
   };
 }
 const EOK = 1e8;
